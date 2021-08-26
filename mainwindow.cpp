@@ -85,6 +85,7 @@ void MainWindow::on_selectFilePushBtn_clicked()
 void MainWindow::on_playPushBtn_clicked()
 {
     LogInfo("play button clicked");
+    m_videoFilepath = "/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4";
     m_videoplayer.startPlayer(m_videoFilepath);
 }
 
@@ -97,4 +98,5 @@ void MainWindow::on_pausePushBtn_clicked()
     } else {
         m_videoplayer.pause();
     }
+    m_ispause = !m_ispause;
 }

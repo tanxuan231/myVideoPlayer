@@ -5,28 +5,16 @@ void Videoplayer::decodeVideoThread()
 {
     LogDebug("================== %s start ==================", __FUNCTION__);
     usleep(1000);   // 等数据入队列
-
     m_isVideoThreadFinished = false;
 
-    int videoWidth  = 0;
-    int videoHeight =  0;
-
-    double video_pts = 0; // 当前视频的pts，时间显示戳
-    double audio_pts = 0; // 音频pts
-
     // 解码视频相关
-    AVFrame *pFrame = nullptr;
-    AVFrame *rgbFrame = nullptr;
-    uint8_t *outBuffer = nullptr; // 解码后的数据
-    struct SwsContext *imgConvertCtx = nullptr;  // 用于解码后的视频格式转换
-
+    AVFrame *pFrame = nullptr;    
     AVCodecContext *pCodecCtx = m_videoStream->codec; // 视频解码器
     pFrame = av_frame_alloc();
 
     while(1) {
         if (m_isQuit) {
             LogDebug("is quited");
-            clearVideoQuene();
             break;
         }
 
@@ -64,86 +52,17 @@ void Videoplayer::decodeVideoThread()
         }
 
         // 3.解码
-        while (0 == avcodec_receive_frame(pCodecCtx, pFrame)) {
-            if (packet->dts == AV_NOPTS_VALUE && pFrame->opaque && *(uint64_t*) pFrame->opaque != AV_NOPTS_VALUE) {
-                video_pts = *(uint64_t *) pFrame->opaque;
-            } else if (packet->dts != AV_NOPTS_VALUE) {
-                video_pts = packet->dts;
-            } else {
-                video_pts = 0;
-            }
-
-            video_pts *= av_q2d(m_videoStream->time_base);
-            //video_clock = video_pts;
-
-            LogDebug("width: %d | %d, height: %d | %d", pFrame->width, videoWidth, pFrame->height, videoHeight);
-            if (pFrame->width != videoWidth || pFrame->height != videoHeight) {
-                videoWidth  = pFrame->width;
-                videoHeight = pFrame->height;
-            }
-            if (rgbFrame != nullptr) {
-                av_free(rgbFrame);
-            }
-
-            if (outBuffer != nullptr) {
-                av_free(outBuffer);
-            }
-
-            if (imgConvertCtx != nullptr) {
-                sws_freeContext(imgConvertCtx);
-            }
-
-            rgbFrame = av_frame_alloc();
-            if (!rgbFrame) {
-                LogError("frame alloc YUV failed");
-                av_packet_unref(packet);
-                break;
-            }
-
-            av_image_alloc(rgbFrame->data,
-                rgbFrame->linesize,
-                videoWidth, videoHeight,
-                AV_PIX_FMT_RGB32,
-                1);
-
-            // 由于解码后的数据不一定都是yuv420p，因此需要将解码后的数据统一转换成YUV420P
-            //LogDebug("src image format: %d", pFrame->format);
-            imgConvertCtx = sws_getContext(videoWidth, videoHeight,
-                    (AVPixelFormat)pFrame->format, videoWidth, videoHeight,
-                    AV_PIX_FMT_RGB32, SWS_BICUBIC, NULL, NULL, NULL);
-
-            LogDebug("start to sws_scale");
-            sws_scale(imgConvertCtx,
-                    (const uint8_t* const*)pFrame->data,
-                    pFrame->linesize, 0, videoHeight, rgbFrame->data,
-                    rgbFrame->linesize);
-
-            RenderVideo(rgbFrame->data[0], videoWidth, videoHeight);
-        }
+        decodeFrame(pCodecCtx, pFrame, packet);
 
         av_packet_unref(packet);
     }
 
     LogDebug("================== decode over ==================");
-    av_free(pFrame);
-
-    if (rgbFrame != nullptr)
-    {
-        av_free(rgbFrame);
+    if (pFrame != nullptr) {
+        av_free(pFrame);
     }
 
-    if (outBuffer != nullptr)
-    {
-        av_free(outBuffer);
-    }
-
-    if (imgConvertCtx != nullptr)
-    {
-        sws_freeContext(imgConvertCtx);
-    }
-
-    if (!m_isQuit)
-    {
+    if (!m_isQuit) {
         m_isQuit = true;
     }
 
@@ -152,4 +71,75 @@ void Videoplayer::decodeVideoThread()
     LogDebug("%s finished", __FUNCTION__);
 
     return;
+}
+
+void Videoplayer::decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket *packet)
+{
+    AVFrame *rgbFrame = nullptr;
+    struct SwsContext *imgConvertCtx = nullptr;
+    double video_pts = 0; // 当前视频的pts，时间显示戳
+    double audio_pts = 0; // 音频pts
+    int videoWidth  = 0;
+    int videoHeight =  0;
+
+    while (0 == avcodec_receive_frame(pCodecCtx, pFrame)) {
+        if (packet->dts == AV_NOPTS_VALUE && pFrame->opaque && *(uint64_t*) pFrame->opaque != AV_NOPTS_VALUE) {
+            video_pts = *(uint64_t *) pFrame->opaque;
+        } else if (packet->dts != AV_NOPTS_VALUE) {
+            video_pts = packet->dts;
+        } else {
+            video_pts = 0;
+        }
+
+        video_pts *= av_q2d(m_videoStream->time_base);
+
+        LogDebug("width: %d | %d, height: %d | %d", pFrame->width, videoWidth, pFrame->height, videoHeight);
+        if (pFrame->width != videoWidth || pFrame->height != videoHeight) {
+            videoWidth  = pFrame->width;
+            videoHeight = pFrame->height;
+        }
+
+        if (rgbFrame != nullptr) {
+            av_free(rgbFrame);
+        }
+
+        if (imgConvertCtx != nullptr) {
+            sws_freeContext(imgConvertCtx);
+        }
+
+        rgbFrame = av_frame_alloc();
+        if (!rgbFrame) {
+            LogError("frame alloc YUV failed");
+            av_packet_unref(packet);
+            break;
+        }
+
+        // 需要给rgbFrame->data分配好空间，避免sws_scale出现dst pointer错误
+        av_image_alloc(rgbFrame->data,
+            rgbFrame->linesize,
+            videoWidth, videoHeight,
+            AV_PIX_FMT_RGB32,
+            1);
+
+        // 将解码后的数据转换成RGB32
+        imgConvertCtx = sws_getContext(videoWidth, videoHeight,
+                (AVPixelFormat)pFrame->format, videoWidth, videoHeight,
+                AV_PIX_FMT_RGB32, SWS_BICUBIC, NULL, NULL, NULL);
+
+        sws_scale(imgConvertCtx,
+                (const uint8_t* const*)pFrame->data,
+                pFrame->linesize, 0, videoHeight, rgbFrame->data,
+                rgbFrame->linesize);
+
+        // 发送数据给Qt进行渲染
+        RenderVideo(rgbFrame->data[0], videoWidth, videoHeight);
+    }
+
+    if (rgbFrame != nullptr) {
+        av_free(rgbFrame);
+    }
+
+    if (imgConvertCtx != nullptr) {
+        sws_freeContext(imgConvertCtx);
+    }
 }

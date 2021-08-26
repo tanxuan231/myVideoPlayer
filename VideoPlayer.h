@@ -48,14 +48,19 @@ public:
     void pause();
     void stop();
 private:
+    // 读取文件
     void readFileThread();
     void readFrame(const int videoStreamId, const int audioStreamId);
-    void decodeVideoThread();
 
     bool putVideoPacket(const AVPacket &pkt);
     bool getVideoPacket(AVPacket& packet);
     void clearVideoQuene();
 
+    // 解码
+    void decodeVideoThread();
+    void decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket *packet);
+
+    // 渲染
     void RenderVideo(const uint8_t *videoBuffer, const int width, const int height);
 
 private:

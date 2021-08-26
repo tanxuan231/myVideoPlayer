@@ -69,7 +69,7 @@ void Videoplayer::pause()
 
 void Videoplayer::stop()
 {
-
+    m_isQuit = true;
 }
 
 // 读取文件子线程
