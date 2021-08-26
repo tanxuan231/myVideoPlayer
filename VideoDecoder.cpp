@@ -99,20 +99,7 @@ void Videoplayer::decodeVideoThread()
                 av_packet_unref(packet);
                 break;
             }
-/*
-            LogDebug("start to av_image_get_buffer_size");
-            //int yuvSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, videoWidth, videoHeight, 1);  // 按1字节进行内存对齐,得到的内存大小最接近实际大小
-            int yuvSize = av_image_get_buffer_size(AV_PIX_FMT_RGB32, videoWidth, videoHeight, 1);  // 按1字节进行内存对齐,得到的内存大小最接近实际大小
-            //int yuvSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 0);  //按0字节进行内存对齐，得到的内存大小是0
-            //int yuvSize = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 4);   //按4字节进行内存对齐，得到的内存大小稍微大一些
 
-            unsigned int numBytes = static_cast<unsigned int>(yuvSize);
-            LogDebug("yuvsize: %d, numBytes: %u", yuvSize, numBytes);
-            outBuffer = static_cast<uint8_t *>(av_malloc(numBytes * sizeof(uint8_t)));
-            if (!outBuffer) {
-                //av_image_fill_arrays(rgbFrame->data, rgbFrame->linesize, outBuffer, AV_PIX_FMT_RGBA, videoWidth, videoHeight, 1);
-            }
-*/
             av_image_alloc(rgbFrame->data,
                 rgbFrame->linesize,
                 videoWidth, videoHeight,
@@ -136,8 +123,8 @@ void Videoplayer::decodeVideoThread()
 
         av_packet_unref(packet);
     }
-    LogDebug("================== decode over ==================");
 
+    LogDebug("================== decode over ==================");
     av_free(pFrame);
 
     if (rgbFrame != nullptr)
