@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QImage>
 #include "VideoPlayerCallBack.h"
+#include "VideoPlayer.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -28,8 +29,19 @@ private:
 signals:
     void DisplayVideoSignal(QImage* image);
 
+private slots:
+    void on_selectFilePushBtn_clicked();
+
+    void on_playPushBtn_clicked();
+
+    void on_pausePushBtn_clicked();
+
 private:
     Ui::MainWindow *ui;
     QImage* m_image;
+
+    bool m_ispause;
+    std::string m_videoFilepath;
+    Videoplayer m_videoplayer;
 };
 #endif // MAINWINDOW_H

@@ -44,9 +44,9 @@ public:
 
     bool startPlayer(const std::string& filepath);
 
-    bool play();
-    bool pause();
-    bool stop();
+    void play();
+    void pause();
+    void stop();
 private:
     void readFileThread();
     void readFrame(const int videoStreamId, const int audioStreamId);

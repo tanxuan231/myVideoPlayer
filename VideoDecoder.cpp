@@ -30,35 +30,12 @@ void Videoplayer::decodeVideoThread()
             break;
         }
 
-        if (m_isPause == true) {
-            LogDebug("is pause");
+        if (m_isPause == true) {            
             usleep(10*1000);
             continue;
         }
 
         // 1.从队列中获取package
-/*
-        AVPacket pkt1;
-        {
-            std::unique_lock<std::mutex> lock(m_videoMutex);
-            if (m_videoPacktList.size() <= 0) {
-                //LogDebug("video package list is empty");
-                //if (mIsReadFinished) {
-                    // 队列里面没有数据了且读取完毕了
-                    //break;
-                //} else {
-                    usleep(10*1000); // 队列只是暂时没有数据而已
-                    continue;
-                //}
-            } else {
-                //LogDebug("get a video package");
-            }
-
-            LogDebug("OUT videoPacktList size: %d", m_videoPacktList.size());
-            pkt1 = m_videoPacktList.front();
-            m_videoPacktList.pop_front();
-        }
-*/
         AVPacket pkt1;
         if (!getVideoPacket(pkt1)) {
             //if (mIsReadFinished) {

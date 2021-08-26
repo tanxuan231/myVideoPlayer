@@ -38,6 +38,10 @@ Videoplayer::~Videoplayer()
 
 bool Videoplayer::startPlayer(const std::string& filepath)
 {
+    if (filepath.empty()) {
+        LogError("no video file");
+        return false;
+    }
     if (!m_isinited) {
         LogError("player is not inited");
         return false;
@@ -53,7 +57,22 @@ bool Videoplayer::startPlayer(const std::string& filepath)
     return true;
 }
 
-// 子线程
+void Videoplayer::play()
+{
+    m_isPause = false;
+}
+
+void Videoplayer::pause()
+{
+    m_isPause = true;
+}
+
+void Videoplayer::stop()
+{
+
+}
+
+// 读取文件子线程
 void Videoplayer::readFileThread()
 {
     LogDebug("================== start to read file: %s ==================", m_filepath.c_str());
@@ -160,17 +179,16 @@ void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
             break;
         }
 
+        if (m_isPause) {
+            usleep(10*1000);
+            continue;
+        }
+
         // 这里做了个限制  当队列里面的数据超过某个大小的时候 就暂停读取  防止一下子就把视频读完了，导致的空间分配不足
         // 这个值可以稍微写大一些
         //if (mAudioPacktList.size() > MAX_AUDIO_SIZE || mVideoPacktList.size() > MAX_VIDEO_SIZE)
         if (m_videoPacktList.size() > MAX_VIDEO_SIZE) {
             LogWarn("video pack list size %u > %u", m_videoPacktList.size(), MAX_VIDEO_SIZE);
-            usleep(10*1000);
-            continue;
-        }
-
-        if (m_isPause) {
-            LogDebug("is pausing...");
             usleep(10*1000);
             continue;
         }

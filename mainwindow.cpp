@@ -1,16 +1,21 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "Log.h"
+#include <QString>
 #include <QPainter>
-
+#include <QDir>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_image(nullptr)
+    , m_ispause(false)
 {
     ui->setupUi(this);
     connect(this, &MainWindow::DisplayVideoSignal, this, &MainWindow::DisplayVideoSlot);
+    m_videoplayer.setVideoPlayerCallBack(this);
+    m_videoplayer.initPlayer();
 }
 
 MainWindow::~MainWindow()
@@ -65,4 +70,31 @@ void MainWindow::paintEvent(QPaintEvent *event)
 
     delete m_image;
     m_image = nullptr;
+}
+
+// 选择文件
+void MainWindow::on_selectFilePushBtn_clicked()
+{
+    QString dlgTitle = "select a video file";
+    QString fileName = QFileDialog::getOpenFileName(this, dlgTitle, QDir::currentPath());
+    m_videoFilepath = fileName.toStdString();
+    LogInfo("get fileName: %s", fileName.toLatin1().data());
+}
+
+// 播放
+void MainWindow::on_playPushBtn_clicked()
+{
+    LogInfo("play button clicked");
+    m_videoplayer.startPlayer(m_videoFilepath);
+}
+
+// 暂停/继续
+void MainWindow::on_pausePushBtn_clicked()
+{
+    LogInfo("pause/continue button clicked");
+    if (m_ispause) {
+        m_videoplayer.play();
+    } else {
+        m_videoplayer.pause();
+    }
 }
