@@ -5,12 +5,11 @@ void Videoplayer::decodeVideoThread()
 {
     LogDebug("================== %s start ==================", __FUNCTION__);
     usleep(1000);   // 等数据入队列
-    m_isVideoThreadFinished = false;
+    m_isVideoDecodeFinished = false;
 
     // 解码视频相关
-    AVFrame *pFrame = nullptr;    
     AVCodecContext *pCodecCtx = m_videoStream->codec; // 视频解码器
-    pFrame = av_frame_alloc();
+    AVFrame *pFrame = av_frame_alloc();;
 
     while(1) {
         if (m_isQuit) {
@@ -26,13 +25,13 @@ void Videoplayer::decodeVideoThread()
         // 1.从队列中获取package
         AVPacket pkt1;
         if (!getVideoPacket(pkt1)) {
-            //if (mIsReadFinished) {
-                // 队列里面没有数据了且读取完毕了
-                //break;
-            //} else {
+            if (m_isReadThreadFinished) {
+                LogInfo("decode no packet in queue, break it");
+                break;
+            } else {
                 usleep(10*1000); // 队列只是暂时没有数据而已
                 continue;
-            //}
+            }
         }
 
         AVPacket *packet = &pkt1;
@@ -53,7 +52,6 @@ void Videoplayer::decodeVideoThread()
 
         // 3.解码
         decodeFrame(pCodecCtx, pFrame, packet);
-
         av_packet_unref(packet);
     }
 
@@ -66,7 +64,7 @@ void Videoplayer::decodeVideoThread()
         m_isQuit = true;
     }
 
-    m_isVideoThreadFinished = true;
+    m_isVideoDecodeFinished = true;
 
     LogDebug("%s finished", __FUNCTION__);
 

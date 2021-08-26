@@ -5,8 +5,8 @@ enum VideoPlayerState
 {
     VideoPlayer_Null,
     VideoPlayer_Playing,
-    VideoPlayer_Pause,
-    VideoPlayer_Stop
+    VideoPlayer_Pausing,
+    VideoPlayer_Stoped
 };
 
 

@@ -18,26 +18,36 @@ bool Videoplayer::initPlayer()
 }
 
 Videoplayer::Videoplayer() : m_videoPlayerCallBack(nullptr),
-    m_playState(VideoPlayer_Null),
-    m_isPause(false),
-    m_isQuit(false),
-    m_isReadThreadFinished(false),
-    m_isVideoThreadFinished(false),
     m_avformatCtx(nullptr),
     m_avcodecCtx(nullptr),
     m_avCodec(nullptr),
     m_videoStream(nullptr)
 {
-
+    init();
 }
 
 Videoplayer::~Videoplayer()
 {
+    stop();
+}
 
+VideoPlayerState Videoplayer::getState()
+{
+    return m_playState;
+}
+
+void Videoplayer::init()
+{
+    m_playState = VideoPlayer_Null;
+    m_isPause = false;
+    m_isQuit = false;
+    m_isReadThreadFinished = false;
+    m_isVideoDecodeFinished = false;
 }
 
 bool Videoplayer::startPlayer(const std::string& filepath)
 {
+    LogInfo("start player");
     if (filepath.empty()) {
         LogError("no video file");
         return false;
@@ -48,6 +58,7 @@ bool Videoplayer::startPlayer(const std::string& filepath)
     }
 
     m_filepath = filepath;
+    init();
 
     // 启动线程读取文件
     std::thread([&](Videoplayer* p) {
@@ -64,12 +75,36 @@ void Videoplayer::play()
 
 void Videoplayer::pause()
 {
+    m_playState = VideoPlayer_Pausing;
     m_isPause = true;
 }
 
 void Videoplayer::stop()
 {
+    LogInfo("stop player");
     m_isQuit = true;
+
+    usleep(10*1000);
+    clearResource();
+
+    m_playState = VideoPlayer_Stoped;
+}
+
+void Videoplayer::clearResource()
+{
+    LogInfo("clear resource");
+    clearVideoQuene();
+
+    if (m_avcodecCtx != nullptr) {
+        avcodec_close(m_avcodecCtx);
+        m_avcodecCtx = nullptr;
+    }
+
+    if (m_avformatCtx != nullptr) {
+        avformat_close_input(&m_avformatCtx);
+        avformat_free_context(m_avformatCtx);
+        m_avformatCtx = nullptr;
+    }
 }
 
 // 读取文件子线程
@@ -81,34 +116,33 @@ void Videoplayer::readFileThread()
     int audioStreamId = -1;
 
     m_avformatCtx = avformat_alloc_context();
+    if (m_avformatCtx == nullptr) {
+        LogError("avformat alloc context failed");
+        return;
+    }
 
     AVDictionary* opts = nullptr;
     av_dict_set(&opts, "rtsp_transport", "tcp", 0); // 设置tcp or udp，默认一般优先tcp再尝试udp
     av_dict_set(&opts, "stimeout", "60000000", 0);  // 设置超时3秒
 
     // 1.打开视频文件
-    if (avformat_open_input(&m_avformatCtx, m_filepath.c_str(), nullptr, &opts) != 0)
-    {
+    if (avformat_open_input(&m_avformatCtx, m_filepath.c_str(), nullptr, &opts) != 0) {
         LogError("can't open the file: %s", m_filepath.c_str());
         goto end;
     }
 
     // 2.查找视频流
-    if (avformat_find_stream_info(m_avformatCtx, nullptr) < 0)
-    {
+    if (avformat_find_stream_info(m_avformatCtx, nullptr) < 0) {
         LogError("Could't find stream infomation");
         goto end;
     }
 
     // 循环查找视频中包含的流信息
-    for (int i = 0; i < m_avformatCtx->nb_streams; i++)
-    {
-        if (m_avformatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
-        {
+    for (int i = 0; i < m_avformatCtx->nb_streams; i++) {
+        if (m_avformatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
             videoStreamId = i;
         }
-        if (m_avformatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO  && audioStreamId < 0)
-        {
+        if (m_avformatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO  && audioStreamId < 0) {
             audioStreamId = i;
         }
     }
@@ -124,6 +158,7 @@ void Videoplayer::readFileThread()
         LogError("find the avcodec contex failed");
         goto end;
     }
+
     m_avCodec = avcodec_find_decoder(m_avcodecCtx->codec_id);
     if (m_avCodec == nullptr) {
         LogError("find the decoder failed");
@@ -139,14 +174,14 @@ void Videoplayer::readFileThread()
     m_videoStream = m_avformatCtx->streams[videoStreamId];
 
     // 创建一个线程专门用来解码视频
-    LogDebug("start to create a video decoder thread");
     std::thread([&](Videoplayer* p) {
         p->decodeVideoThread();
     }, this).detach();
 
-    LogDebug("start to dump the video info:");
-    av_dump_format(m_avformatCtx, 0, m_filepath.c_str(), 0); // 输出视频信息
     m_playState = VideoPlayer_Playing;
+
+    LogDebug("++++++ video dump info +++++++");
+    av_dump_format(m_avformatCtx, 0, m_filepath.c_str(), 0); // 输出视频信息
 
     mVideoStartTime = av_gettime();
     LogDebug("mVideoStartTime: %ld", mVideoStartTime);
@@ -154,19 +189,7 @@ void Videoplayer::readFileThread()
     readFrame(videoStreamId, audioStreamId);
 
 end:
-    LogInfo("read file thread end");
     m_isReadThreadFinished = true;
-
-    clearVideoQuene();
-
-    if (m_avcodecCtx != nullptr) {
-        avcodec_close(m_avcodecCtx);
-        m_avcodecCtx = nullptr;
-    }
-
-    avformat_close_input(&m_avformatCtx);
-    avformat_free_context(m_avformatCtx);
-
     LogInfo("================== read file thread over ==================");
 }
 
@@ -205,9 +228,12 @@ void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
                 LogWarn("set packet to null");
                 packet.data = NULL;
                 packet.size = 0;
+            } else if (ret == AVERROR_EOF) {
+                LogInfo("read file eof");
+                break;
             } else {
-                if (m_isVideoThreadFinished || m_isQuit) {
-                    LogWarn("read frame failed, but is quit, break it");
+                if (m_isVideoDecodeFinished || m_isQuit) {
+                    LogWarn("read frame failed, but video decode finished or is quit, break it");
                     break; // 解码线程也执行完了 可以退出了
                 }
                 usleep(10*1000);
@@ -217,8 +243,6 @@ void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
 
         //LogDebug("get packet stream index: %d", packet.stream_index);
         if (packet.stream_index == videoStreamId) {
-            //LogDebug("video stream info");
-            // 这里我们将数据存入队列 因此不调用 av_free_packet 释放
             putVideoPacket(packet);
             usleep(1000);    // 稍微休息下
         }
@@ -233,12 +257,6 @@ void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
         }
     }
 
-    // 等待播放完毕
-    LogInfo("read frame over, m_isVideoThreadFinished: %d", m_isVideoThreadFinished);
-    while (!m_isVideoThreadFinished)
-    {
-        usleep(100*1000);
-    }
     LogInfo("read frame over");
 }
 
@@ -278,12 +296,9 @@ bool Videoplayer::getVideoPacket(AVPacket& packet)
 void Videoplayer::clearVideoQuene()
 {
     std::unique_lock<std::mutex> lock(m_videoMutex);
-    for (AVPacket pkt : m_videoPacktList)
-    {
-        //av_free_packet(&pkt);
+    for (AVPacket pkt : m_videoPacktList) {
         av_packet_unref(&pkt);
     }
-
     m_videoPacktList.clear();
 }
 

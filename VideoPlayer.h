@@ -40,6 +40,8 @@ public:
 
     static bool initPlayer();
 
+    VideoPlayerState getState();
+
     void setVideoPlayerCallBack(VideoPlayerCallBack *pointer) { m_videoPlayerCallBack = pointer; }
 
     bool startPlayer(const std::string& filepath);
@@ -47,7 +49,10 @@ public:
     void play();
     void pause();
     void stop();
+    void clearResource();
 private:
+    void init();
+
     // 读取文件
     void readFileThread();
     void readFrame(const int videoStreamId, const int audioStreamId);
@@ -74,7 +79,7 @@ private:
     bool m_isQuit;
 
     bool m_isReadThreadFinished;
-    bool m_isVideoThreadFinished;
+    bool m_isVideoDecodeFinished;
 
     // 视频相关
     AVFormatContext *m_avformatCtx;

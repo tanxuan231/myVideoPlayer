@@ -29,10 +29,10 @@ void MainWindow::onDisplayVideo(VideoFramePtr videoFrame)
 
 }
 
-void MainWindow::onDisplayVideo(const uint8_t *yuv420Buffer, const int width, const int height)
+void MainWindow::onDisplayVideo(const uint8_t *buffer, const int width, const int height)
 {
     LogDebug("%s start", __FUNCTION__);
-    QImage *videoImage = new QImage(yuv420Buffer, width, height, QImage::Format_RGB32);
+    QImage *videoImage = new QImage(buffer, width, height, QImage::Format_RGB32);
     emit DisplayVideoSignal(videoImage);
 }
 
@@ -58,7 +58,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
         return;
     }
 
-    LogDebug("paint event, w: %d, h: %d", this->width(), this->height());
+    //LogDebug("paint event, w: %d, h: %d", this->width(), this->height());
     // 将图像按比例缩放成和窗口一样大小
     QImage img = m_image->scaled(this->size(), Qt::KeepAspectRatio);
 
@@ -77,22 +77,44 @@ void MainWindow::on_selectFilePushBtn_clicked()
 {
     QString dlgTitle = "select a video file";
     QString fileName = QFileDialog::getOpenFileName(this, dlgTitle, QDir::currentPath());
+    if (fileName.isEmpty()) {
+        return;
+    }
+
     m_videoFilepath = fileName.toStdString();
     LogInfo("get fileName: %s", fileName.toLatin1().data());
+
+    on_playPushBtn_clicked();
 }
 
 // 播放
 void MainWindow::on_playPushBtn_clicked()
 {
-    LogInfo("play button clicked");
-    m_videoFilepath = "/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4";
+    VideoPlayerState playState = m_videoplayer.getState();
+    LogInfo("play button clicked, playState: %d, last: %s, cur: %s",
+            playState, m_lastvVideoFilepath.c_str(), m_videoFilepath.c_str());
+    if (m_lastvVideoFilepath == m_videoFilepath &&
+            (playState == VideoPlayer_Playing ||
+             playState == VideoPlayer_Pausing)) {
+        return;
+    }
+
+    //m_videoFilepath = "/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4";
+    if (!m_lastvVideoFilepath.empty() && m_lastvVideoFilepath != m_videoFilepath) {
+        m_videoplayer.stop();
+    }
     m_videoplayer.startPlayer(m_videoFilepath);
+    m_lastvVideoFilepath = m_videoFilepath;
 }
 
 // 暂停/继续
 void MainWindow::on_pausePushBtn_clicked()
 {
-    LogInfo("pause/continue button clicked");
+    VideoPlayerState playState = m_videoplayer.getState();
+    LogInfo("pause/continue button clicked, playState: %d", playState);
+    if (playState != VideoPlayer_Playing || playState != VideoPlayer_Pausing) {
+        return;
+    }
     if (m_ispause) {
         m_videoplayer.play();
     } else {

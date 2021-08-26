@@ -20,7 +20,7 @@ public:
 
 protected:
     void onDisplayVideo(VideoFramePtr videoFrame);
-    void onDisplayVideo(const uint8_t *yuv420Buffer, const int width, const int height);
+    void onDisplayVideo(const uint8_t *buffer, const int width, const int height);
 
 private:
     void paintEvent(QPaintEvent *event);
@@ -42,6 +42,7 @@ private:
 
     bool m_ispause;
     std::string m_videoFilepath;
+    std::string m_lastvVideoFilepath;
     Videoplayer m_videoplayer;
 };
 #endif // MAINWINDOW_H
