@@ -10,14 +10,12 @@ CONFIG += c++11
 
 SOURCES += \
     VideoDecoder.cpp \
-    VideoFrame.cpp \
     VideoPlayer.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     Log.h \
-    VideoFrame.h \
     VideoPlayer.h \
     VideoPlayerCallBack.h \
     mainwindow.h \

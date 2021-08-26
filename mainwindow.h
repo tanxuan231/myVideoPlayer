@@ -19,7 +19,6 @@ public:
     ~MainWindow();
 
 protected:
-    void onDisplayVideo(VideoFramePtr videoFrame);
     void onDisplayVideo(const uint8_t *buffer, const int width, const int height);
 
 private:

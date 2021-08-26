@@ -24,11 +24,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::onDisplayVideo(VideoFramePtr videoFrame)
-{
-
-}
-
 void MainWindow::onDisplayVideo(const uint8_t *buffer, const int width, const int height)
 {
     LogDebug("%s start", __FUNCTION__);

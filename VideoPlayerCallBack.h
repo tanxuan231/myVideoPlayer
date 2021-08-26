@@ -24,9 +24,6 @@ public:
     // 播放器状态改变的时候回调此函数
     //virtual void onPlayerStateChanged(const VideoPlayerState &state, const bool &hasVideo, const bool &hasAudio) = 0;
 
-    // 播放视频，此函数不宜做耗时操作，否则会影响播放的流畅性。
-    virtual void onDisplayVideo(VideoFramePtr videoFrame) = 0;
-
     virtual void onDisplayVideo(const uint8_t *yuv420Buffer, const int width, const int height) = 0;
 };
 

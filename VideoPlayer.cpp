@@ -307,11 +307,5 @@ void Videoplayer::RenderVideo(const uint8_t *videoBuffer, const int width, const
     if (m_videoPlayerCallBack != nullptr) {
         m_videoPlayerCallBack->onDisplayVideo(videoBuffer, width, height);
         return;
-
-        VideoFramePtr videoFrame = std::make_shared<VideoFrame>();
-
-        videoFrame->initBuffer(width, height);
-        videoFrame->setYUVbuf(videoBuffer);
-        m_videoPlayerCallBack->onDisplayVideo(videoFrame);
     }
 }
