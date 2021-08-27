@@ -23,8 +23,8 @@ void Videoplayer::decodeVideoThread()
         }
 
         // 1.从队列中获取package
-        AVPacket pkt1;
-        if (!getVideoPacket(pkt1)) {
+        AVPacket tmpPkt;
+        if (!getVideoPacket(tmpPkt)) {
             if (m_isReadThreadFinished) {
                 LogInfo("decode no packet in queue, break it");
                 break;
@@ -34,7 +34,7 @@ void Videoplayer::decodeVideoThread()
             }
         }
 
-        AVPacket *packet = &pkt1;
+        AVPacket *packet = &tmpPkt;
         // 收到这个数据 说明刚刚执行过跳转 现在需要把解码器的数据 清除一下
         if (packet->data != NULL && strcmp((char*)packet->data, FLUSH_DATA) == 0) {
             LogWarn("flush buffers");
@@ -75,23 +75,26 @@ void Videoplayer::decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPack
 {
     AVFrame *rgbFrame = nullptr;
     struct SwsContext *imgConvertCtx = nullptr;
-    double video_pts = 0; // 当前视频的pts，时间显示戳
+    double videoPts = 0; // 当前视频的pts，时间显示戳
     double audio_pts = 0; // 音频pts
     int videoWidth  = 0;
     int videoHeight =  0;
 
     while (0 == avcodec_receive_frame(pCodecCtx, pFrame)) {
+        LogDebug("video start: %ld, pts: %ld, %ld, %ld, dts: %ld, %ld",
+                 m_videoStartTime, packet->pts, pFrame->pts, pFrame->pkt_pts, packet->dts, pFrame->pkt_dts);
+
         if (packet->dts == AV_NOPTS_VALUE && pFrame->opaque && *(uint64_t*) pFrame->opaque != AV_NOPTS_VALUE) {
-            video_pts = *(uint64_t *) pFrame->opaque;
+            videoPts = *(uint64_t *) pFrame->opaque;
         } else if (packet->dts != AV_NOPTS_VALUE) {
-            video_pts = packet->dts;
+            videoPts = packet->dts;
         } else {
-            video_pts = 0;
+            videoPts = 0;
         }
 
-        video_pts *= av_q2d(m_videoStream->time_base);
+        videoPts *= av_q2d(m_videoStream->time_base);
 
-        LogDebug("width: %d | %d, height: %d | %d", pFrame->width, videoWidth, pFrame->height, videoHeight);
+        //LogDebug("width: %d | %d, height: %d | %d", pFrame->width, videoWidth, pFrame->height, videoHeight);
         if (pFrame->width != videoWidth || pFrame->height != videoHeight) {
             videoWidth  = pFrame->width;
             videoHeight = pFrame->height;

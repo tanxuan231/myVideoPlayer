@@ -4,6 +4,9 @@
 #include <QString>
 #include <QPainter>
 #include <QDir>
+#include <QList>
+#include <QMimeData>
+#include <QUrl>
 #include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -13,9 +16,13 @@ MainWindow::MainWindow(QWidget *parent)
     , m_ispause(false)
 {
     ui->setupUi(this);
+    setAcceptDrops(true);   // 接受拖拽
     connect(this, &MainWindow::DisplayVideoSignal, this, &MainWindow::DisplayVideoSlot);
     m_videoplayer.setVideoPlayerCallBack(this);
     m_videoplayer.initPlayer();
+
+    playVideo("/Users/xuan.tan/big_buck_bunny_720p_1mb.mp4");
+    //playVideo("/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4");
 }
 
 MainWindow::~MainWindow()
@@ -26,7 +33,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::onDisplayVideo(const uint8_t *buffer, const int width, const int height)
 {
-    LogDebug("%s start", __FUNCTION__);
+    //LogDebug("%s start", __FUNCTION__);
     QImage *videoImage = new QImage(buffer, width, height, QImage::Format_RGB32);
     emit DisplayVideoSignal(videoImage);
 }
@@ -67,6 +74,28 @@ void MainWindow::paintEvent(QPaintEvent *event)
     m_image = nullptr;
 }
 
+// 拖拽进入事件
+void MainWindow::dragEnterEvent(QDragEnterEvent *event)
+{
+    event->acceptProposedAction();  // 向用户暗示当前窗口可接受拖拽动作
+}
+
+// 拖拽释放鼠标事件
+void MainWindow::dropEvent(QDropEvent *event)
+{
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.isEmpty()) {
+        return;
+    }
+
+    QString fileName = urls.first().toLocalFile();
+    if (fileName.isEmpty()) {
+        return;
+    }
+    LogInfo("drag drop event, file: %s", fileName.toLatin1().data());
+    playVideo(fileName.toStdString());
+}
+
 // 选择文件
 void MainWindow::on_selectFilePushBtn_clicked()
 {
@@ -76,30 +105,32 @@ void MainWindow::on_selectFilePushBtn_clicked()
         return;
     }
 
-    m_videoFilepath = fileName.toStdString();
-    LogInfo("get fileName: %s", fileName.toLatin1().data());
-
-    on_playPushBtn_clicked();
+    m_videoFilepath = fileName.toStdString();    
+    playVideo(m_videoFilepath);
 }
 
-// 播放
-void MainWindow::on_playPushBtn_clicked()
+void MainWindow::playVideo(std::string fileName)
 {
     VideoPlayerState playState = m_videoplayer.getState();
     LogInfo("play button clicked, playState: %d, last: %s, cur: %s",
-            playState, m_lastvVideoFilepath.c_str(), m_videoFilepath.c_str());
-    if (m_lastvVideoFilepath == m_videoFilepath &&
+            playState, m_lastvVideoFilepath.c_str(), fileName.c_str());
+    if (m_lastvVideoFilepath == fileName &&
             (playState == VideoPlayer_Playing ||
              playState == VideoPlayer_Pausing)) {
         return;
     }
 
-    //m_videoFilepath = "/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4";
-    if (!m_lastvVideoFilepath.empty() && m_lastvVideoFilepath != m_videoFilepath) {
+    if (!m_lastvVideoFilepath.empty() && m_lastvVideoFilepath != fileName) {
         m_videoplayer.stop();
     }
-    m_videoplayer.startPlayer(m_videoFilepath);
-    m_lastvVideoFilepath = m_videoFilepath;
+    m_videoplayer.startPlayer(fileName);
+    m_lastvVideoFilepath = fileName;
+}
+
+// 播放
+void MainWindow::on_playPushBtn_clicked()
+{
+    playVideo(m_videoFilepath);
 }
 
 // 暂停/继续

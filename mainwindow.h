@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QImage>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include "VideoPlayerCallBack.h"
 #include "VideoPlayer.h"
 
@@ -20,10 +22,13 @@ public:
 
 protected:
     void onDisplayVideo(const uint8_t *buffer, const int width, const int height);
+    void dragEnterEvent(QDragEnterEvent *event);
+    void dropEvent(QDropEvent *event);
 
 private:
     void paintEvent(QPaintEvent *event);
     void DisplayVideoSlot(QImage* image);
+    void playVideo(std::string fileName);
 
 signals:
     void DisplayVideoSignal(QImage* image);

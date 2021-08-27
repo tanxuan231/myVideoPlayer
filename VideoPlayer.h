@@ -24,6 +24,16 @@ extern "C" {
     #include <libavfilter/buffersink.h>
     #include <libavfilter/buffersrc.h>
 }
+
+extern "C" {
+    #include <SDL.h>
+    #include <SDL_audio.h>
+    #include <SDL_types.h>
+    #include <SDL_name.h>
+    #include <SDL_main.h>
+    #include <SDL_config.h>
+}
+
 #include "types.h"
 #include "VideoPlayerCallBack.h"
 
@@ -50,6 +60,7 @@ public:
     void pause();
     void stop();
     void clearResource();
+
 private:
     void init();
 
@@ -57,13 +68,29 @@ private:
     void readFileThread();
     void readFrame(const int videoStreamId, const int audioStreamId);
 
+    // 视频队列相关
     bool putVideoPacket(const AVPacket &pkt);
     bool getVideoPacket(AVPacket& packet);
-    void clearVideoQuene();
+    void clearVideoQueue();
 
-    // 解码
+    // 音频队列相关
+    bool putAudioPacket(const AVPacket &pkt);
+    bool getAudioPacket(AVPacket& packet);
+    void clearAudioQueue();
+
+    // 视频解码
+    bool openVideoDecoder(const int streamId);
     void decodeVideoThread();
     void decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket *packet);
+
+    // 音频解码
+    bool openSdlAudio();
+    void closeSdlAudio();
+    bool openAudioDecoder(const int streamId);
+    static void sdlAudioCallBackFunc(void *userdata, Uint8 *stream, int len);
+    void sdlAudioCallBack(Uint8 *stream, int len);
+    int decodeAudioFrame(uint8_t *decodeBuf);
+    int decodeAudioFrame2();
 
     // 渲染
     void RenderVideo(const uint8_t *videoBuffer, const int width, const int height);
@@ -80,21 +107,34 @@ private:
 
     bool m_isReadThreadFinished;
     bool m_isVideoDecodeFinished;
+    bool m_isAudioDecodeFinished;
 
     // 视频相关
     AVFormatContext *m_avformatCtx;
-    AVCodecContext *m_avcodecCtx;
-    AVCodec *m_avCodec;
+    AVCodecContext *m_videoCodecCtx;
     AVStream *m_videoStream; // 视频流
 
     // 视频帧队列
-    //Cond *mConditon_Video;
     std::mutex m_videoMutex;
     std::condition_variable m_videoCondvar;
     std::list<AVPacket> m_videoPacktList;
 
-    uint64_t mVideoStartTime; //开始播放视频的时间
-    uint64_t mPauseStartTime; //暂停开始的时间
+    // 音频相关
+    AVCodecContext *m_audioCodecCtx;
+    AVStream *m_audioStream; // 音频流
+    SDL_AudioDeviceID m_audioDeviceId;
+    double m_audioClock;
+    AVFrame *m_auidoFrameSample;
+    SwrContext *m_audioSwrCtx;
+
+    // 音频帧队列
+    std::mutex m_audioMutex;
+    std::condition_variable m_audioCondvar;
+    std::list<AVPacket> m_audioPacktList;
+
+    // 帧率控制
+    int64_t m_videoStartTime; //开始播放视频的时间
+    int64_t mPauseStartTime; //暂停开始的时间
 };
 
 #endif // VIDEOPLAYER_H

@@ -9,15 +9,6 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 
     MainWindow w;
-
     w.show();
-
-/*
-    Videoplayer player;
-    player.initPlayer();
-    player.setVideoPlayerCallBack(&w);
-    //player.startPlayer("/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4");
-    player.startPlayer("/Users/xuan.tan/big_buck_bunny_720p_1mb.mp4");
-*/
     return a.exec();
 }
