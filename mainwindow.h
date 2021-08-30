@@ -41,6 +41,8 @@ private slots:
 
     void on_pausePushBtn_clicked();
 
+    void on_rtspPushBtn_clicked();
+
 private:
     Ui::MainWindow *ui;
     QImage* m_image;

@@ -45,6 +45,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="rtspPushBtn">
+       <property name="text">
+        <string>拉流地址</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="playPushBtn">
        <property name="text">
         <string>播放</string>

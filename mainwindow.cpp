@@ -8,6 +8,8 @@
 #include <QMimeData>
 #include <QUrl>
 #include <QFileDialog>
+#include <QLineEdit>
+#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -24,6 +26,9 @@ MainWindow::MainWindow(QWidget *parent)
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
     playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
+    //playVideo("/Users/xuan.tan/video/videoplayback_noauido.mp4");
+
+    //playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
 }
 
 MainWindow::~MainWindow()
@@ -34,7 +39,6 @@ MainWindow::~MainWindow()
 
 void MainWindow::onDisplayVideo(const uint8_t *buffer, const int width, const int height)
 {
-    //LogDebug("%s start", __FUNCTION__);
     QImage *videoImage = new QImage(buffer, width, height, QImage::Format_RGB32);
     emit DisplayVideoSignal(videoImage);
 }
@@ -147,7 +151,7 @@ void MainWindow::on_pausePushBtn_clicked()
 {
     VideoPlayerState playState = m_videoplayer.getState();
     LogInfo("pause/continue button clicked, playState: %d", playState);
-    if (playState != VideoPlayer_Playing || playState != VideoPlayer_Pausing) {
+    if (playState != VideoPlayer_Playing && playState != VideoPlayer_Pausing) {
         return;
     }
     if (m_ispause) {
@@ -156,4 +160,20 @@ void MainWindow::on_pausePushBtn_clicked()
         m_videoplayer.pause();
     }
     m_ispause = !m_ispause;
+}
+
+void MainWindow::on_rtspPushBtn_clicked()
+{
+    QString dlgTitle = "";
+    QString txtLabel = "please input rtmp stream";
+    QString defaultInput = "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov";
+    QLineEdit::EchoMode echoMode=QLineEdit::Normal;
+    bool ok = false;
+
+    QString text = QInputDialog::getText(this, dlgTitle, txtLabel, echoMode, defaultInput, &ok);
+    if (ok && !text.isEmpty()) {
+        LogInfo("get rtsp stream: %s", text.toLatin1().data());
+        m_videoFilepath = text.toStdString();
+        playVideo(m_videoFilepath);
+    }
 }

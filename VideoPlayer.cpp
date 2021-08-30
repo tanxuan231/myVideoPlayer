@@ -79,18 +79,20 @@ bool Videoplayer::startPlayer(const std::string& filepath)
 
 void Videoplayer::play()
 {
+    LogInfo("to start player");
     m_isPause = false;
 }
 
 void Videoplayer::pause()
 {
+    LogInfo("to pause player");
     m_playState = VideoPlayer_Pausing;
     m_isPause = true;
 }
 
 void Videoplayer::stop()
 {
-    LogInfo("stop player");
+    LogInfo("to stop player");
     m_isQuit = true;
 
     usleep(10*1000);
