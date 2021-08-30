@@ -21,8 +21,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_videoplayer.setVideoPlayerCallBack(this);
     m_videoplayer.initPlayer();
 
-    playVideo("/Users/xuan.tan/big_buck_bunny_720p_1mb.mp4");
-    //playVideo("/Users/xuan.tan/big_buck_bunny_720p_30mb.mp4");
+    //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
+    //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
+    playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
 }
 
 MainWindow::~MainWindow()
@@ -51,7 +52,7 @@ void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
     painter.setBrush(Qt::black);
-    painter.drawRect(0, 0, this->width(), this->height()); //ÏÈ»­³ÉºÚÉ«
+    painter.drawRect(0, 0, this->width(), this->height());
 
     if (m_image == nullptr) {
         return;

@@ -37,6 +37,7 @@ extern "C" {
 #include "types.h"
 #include "VideoPlayerCallBack.h"
 
+static const int MAX_AUDIO_FRAME_SIZE = 192000;
 #define MAX_AUDIO_SIZE (50 * 20)
 #define MAX_VIDEO_SIZE (25 * 20)
 #define FLUSH_DATA "FLUSH"
@@ -81,7 +82,7 @@ private:
     //  ”∆µΩ‚¬Î
     bool openVideoDecoder(const int streamId);
     void decodeVideoThread();
-    void decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket *packet);
+    void decodeFrame(AVCodecContext *pCodecCtx, AVPacket *packet);
 
     // “Ù∆µΩ‚¬Î
     bool openSdlAudio();
@@ -91,6 +92,7 @@ private:
     void sdlAudioCallBack(Uint8 *stream, int len);
     int decodeAudioFrame(uint8_t *decodeBuf);
     int decodeAudioFrame2();
+    double getAudioClock();
 
     // ‰÷»æ
     void RenderVideo(const uint8_t *videoBuffer, const int width, const int height);
@@ -124,6 +126,9 @@ private:
     AVStream *m_audioStream; // “Ù∆µ¡˜
     SDL_AudioDeviceID m_audioDeviceId;
     double m_audioClock;
+    int m_audioDecodeBufSize;
+    int m_audioDecodeBufIndex;
+    uint8_t* m_audioDecodeBuf;
     AVFrame *m_auidoFrameSample;
     SwrContext *m_audioSwrCtx;
 

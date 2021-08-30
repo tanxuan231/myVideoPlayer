@@ -46,7 +46,12 @@ void Videoplayer::init()
     m_isReadThreadFinished = false;
     m_isVideoDecodeFinished = false;
 
+    m_audioDecodeBufSize = 0;
+    m_audioDecodeBufIndex = 0;
+    m_audioDecodeBuf = new uint8_t[(MAX_AUDIO_FRAME_SIZE * 3) / 2];
+
     m_audioDeviceId = 0;
+    m_audioClock = 0;
 }
 
 bool Videoplayer::startPlayer(const std::string& filepath)
@@ -194,6 +199,8 @@ bool Videoplayer::openVideoDecoder(const int streamId)
     }
 
     m_videoStream = m_avformatCtx->streams[streamId];
+    double videoDuration = m_videoStream->duration * av_q2d(m_videoStream->time_base);
+    LogInfo("video duration: %f", videoDuration);
 
     // 创建一个线程专门用来解码视频
     std::thread([&](Videoplayer* p) {
@@ -298,43 +305,50 @@ bool Videoplayer::openAudioDecoder(const int streamId)
     uint64_t out_ch_layout = AV_CH_LAYOUT_STEREO;
     int outChannelCount = 0;
 
-    // 创建swrcontext上下文件
-/*
-    m_audioSwrCtx = swr_alloc();
-    if (m_audioSwrCtx == nullptr) {
-        LogError("swr alloc failed");
-        goto end;
-    }
-*/
-    // 给Swrcontext分配空间，设置公共参数
-    m_audioSwrCtx = swr_alloc_set_opts(m_audioSwrCtx, out_ch_layout, out_sample_fmt, out_sample_rate,
-                                       in_ch_layout, in_sample_fmt, in_sample_rate, 0, nullptr);
-    if (m_audioSwrCtx == nullptr) {
-        LogError("swr alloc set opts failed");
-        goto end;
-    }
-    if (swr_init(m_audioSwrCtx) < 0) {
-        LogError("swr init failed");
-        goto end;
-    }
+    do {
+        // 创建swrcontext上下文件
+    /*
+        m_audioSwrCtx = swr_alloc();
+        if (m_audioSwrCtx == nullptr) {
+            LogError("swr alloc failed");
+            goto end;
+        }
+    */
+        // 给Swrcontext分配空间，设置公共参数
+        m_audioSwrCtx = swr_alloc_set_opts(m_audioSwrCtx, out_ch_layout, out_sample_fmt, out_sample_rate,
+                                           in_ch_layout, in_sample_fmt, in_sample_rate, 0, nullptr);
+        if (m_audioSwrCtx == nullptr) {
+            LogError("swr alloc set opts failed");
+            break;
+        }
+        if (swr_init(m_audioSwrCtx) < 0) {
+            LogError("swr init failed");
+            break;
+        }
 
-    // 获取声道数量
-    outChannelCount = av_get_channel_layout_nb_channels(out_ch_layout);
-    LogInfo("audio out channel count: %d", outChannelCount);
-    m_audioStream = m_avformatCtx->streams[streamId];
+        // 获取声道数量
+        outChannelCount = av_get_channel_layout_nb_channels(out_ch_layout);
+        LogInfo("audio out channel count: %d", outChannelCount);
+        m_audioStream = m_avformatCtx->streams[streamId];
+        double audioDuration = m_audioStream->duration * av_q2d(m_audioStream->time_base);
+        LogInfo("audio duration: %f", audioDuration);
 
-    if (!openSdlAudio()) {
-        LogError("open sdl audio failed");
-    } else {
-        LogInfo("open sdl audio success");
-        m_isAudioDecodeFinished = false;
-    }
+        if (!openSdlAudio()) {
+            LogError("open sdl audio failed");
+            break;
+        } else {
+            LogInfo("open sdl audio success");
+            m_isAudioDecodeFinished = false;
+            return true;
+        }
+    } while(false);
 
-end:
     if (m_audioSwrCtx != nullptr) {
         swr_free(&m_audioSwrCtx);
         m_audioSwrCtx = nullptr;
     }
+
+    return false;
 }
 
 void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)

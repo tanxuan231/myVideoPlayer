@@ -9,7 +9,6 @@ void Videoplayer::decodeVideoThread()
 
     // 解码视频相关
     AVCodecContext *pCodecCtx = m_videoStream->codec; // 视频解码器
-    AVFrame *pFrame = av_frame_alloc();;
 
     while(1) {
         if (m_isQuit) {
@@ -51,14 +50,11 @@ void Videoplayer::decodeVideoThread()
         }
 
         // 3.解码
-        decodeFrame(pCodecCtx, pFrame, packet);
+        decodeFrame(pCodecCtx, packet);
         av_packet_unref(packet);
     }
 
     LogDebug("================== decode over ==================");
-    if (pFrame != nullptr) {
-        av_free(pFrame);
-    }
 
     if (!m_isQuit) {
         m_isQuit = true;
@@ -67,37 +63,66 @@ void Videoplayer::decodeVideoThread()
     m_isVideoDecodeFinished = true;
 
     LogDebug("%s finished", __FUNCTION__);
-
     return;
 }
 
-void Videoplayer::decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPacket *packet)
+void Videoplayer::decodeFrame(AVCodecContext *pCodecCtx, AVPacket *packet)
 {
+    AVFrame *videoFrame = av_frame_alloc();;
     AVFrame *rgbFrame = nullptr;
     struct SwsContext *imgConvertCtx = nullptr;
     double videoPts = 0; // 当前视频的pts，时间显示戳
-    double audio_pts = 0; // 音频pts
+    double audioPts = 0; // 音频pts
     int videoWidth  = 0;
     int videoHeight =  0;
 
-    while (0 == avcodec_receive_frame(pCodecCtx, pFrame)) {
+    while (0 == avcodec_receive_frame(pCodecCtx, videoFrame)) {
         LogDebug("video start: %ld, pts: %ld, %ld, %ld, dts: %ld, %ld",
-                 m_videoStartTime, packet->pts, pFrame->pts, pFrame->pkt_pts, packet->dts, pFrame->pkt_dts);
+                 m_videoStartTime, packet->pts, videoFrame->pts, videoFrame->pkt_pts, packet->dts, videoFrame->pkt_dts);
 
-        if (packet->dts == AV_NOPTS_VALUE && pFrame->opaque && *(uint64_t*) pFrame->opaque != AV_NOPTS_VALUE) {
-            videoPts = *(uint64_t *) pFrame->opaque;
+        if (packet->dts == AV_NOPTS_VALUE && videoFrame->opaque && *(uint64_t*) videoFrame->opaque != AV_NOPTS_VALUE) {
+            videoPts = *(uint64_t *) videoFrame->opaque;
         } else if (packet->dts != AV_NOPTS_VALUE) {
             videoPts = packet->dts;
         } else {
             videoPts = 0;
         }
 
+        //double timestamp = av_frame_get_best_effort_timestamp(videoFrame) * av_q2d(m_videoStream->time_base);
         videoPts *= av_q2d(m_videoStream->time_base);
 
-        //LogDebug("width: %d | %d, height: %d | %d", pFrame->width, videoWidth, pFrame->height, videoHeight);
-        if (pFrame->width != videoWidth || pFrame->height != videoHeight) {
-            videoWidth  = pFrame->width;
-            videoHeight = pFrame->height;
+        // 音视频同步
+        while (true) {
+            if (m_isQuit) {
+                break;
+            }
+            if (m_audioStream != nullptr) {
+                if (m_isReadThreadFinished && m_audioPacktList.empty()) {
+                    // 无音频，无需同步
+                    break;
+                }
+                audioPts = m_audioClock;
+            } else {
+                // 无音频，则同步到外部时钟
+                audioPts = (av_gettime() - m_videoStartTime) / 1000000.0;   // 秒
+                m_audioClock = audioPts;
+            }
+
+            LogDebug("video pts: %f, audio pts: %f", videoPts, audioPts);
+            if (videoPts <= audioPts) {
+                break;
+            }
+
+            int delayTime = (videoPts - audioPts) * 1000;   // 毫秒
+            delayTime = delayTime > 5 ? 5 : delayTime;
+            usleep(delayTime * 1000);
+        }
+
+
+        //LogDebug("width: %d | %d, height: %d | %d", videoFrame->width, videoWidth, videoFrame->height, videoHeight);
+        if (videoFrame->width != videoWidth || videoFrame->height != videoHeight) {
+            videoWidth  = videoFrame->width;
+            videoHeight = videoFrame->height;
         }
 
         if (rgbFrame != nullptr) {
@@ -124,16 +149,20 @@ void Videoplayer::decodeFrame(AVCodecContext *pCodecCtx, AVFrame *pFrame, AVPack
 
         // 将解码后的数据转换成RGB32
         imgConvertCtx = sws_getContext(videoWidth, videoHeight,
-                (AVPixelFormat)pFrame->format, videoWidth, videoHeight,
+                (AVPixelFormat)videoFrame->format, videoWidth, videoHeight,
                 AV_PIX_FMT_RGB32, SWS_BICUBIC, NULL, NULL, NULL);
 
         sws_scale(imgConvertCtx,
-                (const uint8_t* const*)pFrame->data,
-                pFrame->linesize, 0, videoHeight, rgbFrame->data,
+                (const uint8_t* const*)videoFrame->data,
+                videoFrame->linesize, 0, videoHeight, rgbFrame->data,
                 rgbFrame->linesize);
 
         // 发送数据给Qt进行渲染
         RenderVideo(rgbFrame->data[0], videoWidth, videoHeight);
+    }
+
+    if (videoFrame != nullptr) {
+        av_free(videoFrame);
     }
 
     if (rgbFrame != nullptr) {
