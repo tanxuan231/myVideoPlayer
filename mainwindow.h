@@ -21,6 +21,7 @@ public:
     ~MainWindow();
 
 protected:
+    void onVideoPlayFailed(const int &errorCode = 0);
     void onDisplayVideo(const uint8_t *buffer, const int width, const int height);
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent *event);

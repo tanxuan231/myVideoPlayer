@@ -37,6 +37,11 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::onVideoPlayFailed(const int &errorCode)
+{
+
+}
+
 void MainWindow::onDisplayVideo(const uint8_t *buffer, const int width, const int height)
 {
     QImage *videoImage = new QImage(buffer, width, height, QImage::Format_RGB32);

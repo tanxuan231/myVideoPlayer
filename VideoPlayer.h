@@ -80,7 +80,8 @@ private:
     // 视频解码
     bool openVideoDecoder(const int streamId);
     void decodeVideoThread();
-    void decodeFrame(AVCodecContext *pCodecCtx, AVPacket *packet);
+    void decodeFrame(AVPacket *packet);
+    bool convert2rgb(const int videoWidth, const int videoHeight, AVFrame *videoFrame, AVFrame *rgbFrame);
 
     // 音频解码
     bool openSdlAudio();
@@ -105,14 +106,16 @@ private:
     bool m_isPause;
     bool m_isQuit;
 
+    // 线程状态标志
     bool m_isReadThreadFinished;
     bool m_isVideoDecodeFinished;
     bool m_isAudioDecodeFinished;
 
     // 视频相关
     AVFormatContext *m_avformatCtx;
-    AVCodecContext *m_videoCodecCtx;
     AVStream *m_videoStream; // 视频流
+    AVCodecContext *m_videoCodecCtx;    // 视频编解码器
+    int64_t m_videoStartTime; //开始播放视频的时间
 
     // 视频帧队列
     std::mutex m_videoMutex;
@@ -134,10 +137,6 @@ private:
     std::mutex m_audioMutex;
     std::condition_variable m_audioCondvar;
     std::list<AVPacket> m_audioPacktList;
-
-    // 帧率控制
-    int64_t m_videoStartTime; //开始播放视频的时间
-    int64_t mPauseStartTime; //暂停开始的时间
 };
 
 #endif // VIDEOPLAYER_H
