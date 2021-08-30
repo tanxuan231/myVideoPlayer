@@ -48,6 +48,14 @@ void MainWindow::DisplayVideoSlot(QImage* image)
     update();
 }
 
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    ui->horizontalLayoutWidget->setGeometry((this->width() - ui->horizontalLayoutWidget->width())/2,
+                                            this->height() - ui->horizontalLayoutWidget->height() - 20,
+                                            ui->horizontalLayoutWidget->width(),
+                                            ui->horizontalLayoutWidget->height());
+}
+
 void MainWindow::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);

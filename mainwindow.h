@@ -26,6 +26,7 @@ protected:
     void dropEvent(QDropEvent *event);
 
 private:
+    void resizeEvent(QResizeEvent *event);
     void paintEvent(QPaintEvent *event);
     void DisplayVideoSlot(QImage* image);
     void playVideo(std::string fileName);

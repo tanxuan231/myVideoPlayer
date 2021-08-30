@@ -133,7 +133,7 @@ int Videoplayer::decodeAudioFrame(uint8_t *decodeBuf)
         decodeSize = audioFrame->channels * nb * av_get_bytes_per_sample(dst_format);
 
         // 每秒钟音频播放的字节数 sample_rate * channels * sample_format(一个sample占用的字节数)
-        m_audioClock += static_cast<double>(decodeSize) / (2 * m_audioStream->codec->channels * m_audioStream->codec->sample_rate);
+        //m_audioClock += static_cast<double>(decodeSize) / (2 * m_audioStream->codec->channels * m_audioStream->codec->sample_rate);
 
         break;
     }
