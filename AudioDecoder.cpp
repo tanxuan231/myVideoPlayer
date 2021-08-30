@@ -89,13 +89,6 @@ int Videoplayer::decodeAudioFrame(uint8_t *decodeBuf)
             m_audioClock = av_q2d(m_audioStream->time_base) * packet->pts;
         }
 
-        //收到这个数据 说明刚刚执行过跳转 现在需要把解码器的数据 清除一下
-        if (strcmp((char*)packet->data, FLUSH_DATA) == 0) {
-            avcodec_flush_buffers(m_audioStream->codec);
-            av_packet_unref(packet);
-            continue;
-        }
-
         int ret = avcodec_send_packet(m_audioCodecCtx, packet);
         if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
             LogError("codec send packet failed, ret: %d", ret);

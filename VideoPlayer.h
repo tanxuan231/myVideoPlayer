@@ -40,8 +40,6 @@ extern "C" {
 static const int MAX_AUDIO_FRAME_SIZE = 192000;
 #define MAX_AUDIO_SIZE (50 * 20)
 #define MAX_VIDEO_SIZE (25 * 20)
-#define FLUSH_DATA "FLUSH"
-
 
 class Videoplayer
 {

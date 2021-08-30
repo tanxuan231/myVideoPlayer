@@ -34,14 +34,6 @@ void Videoplayer::decodeVideoThread()
         }
 
         AVPacket *packet = &tmpPkt;
-        // 收到这个数据 说明刚刚执行过跳转 现在需要把解码器的数据 清除一下
-        if (packet->data != NULL && strcmp((char*)packet->data, FLUSH_DATA) == 0) {
-            LogWarn("flush buffers");
-            avcodec_flush_buffers(m_videoStream->codec);
-            av_packet_unref(packet);
-            continue;
-        }
-
         // 2.将数据送入到解码器
         if (avcodec_send_packet(pCodecCtx, packet) != 0) {
            LogError("input AVPacket to decoder failed!\n");
