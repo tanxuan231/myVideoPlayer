@@ -25,10 +25,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
-    playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
+    //playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
     //playVideo("/Users/xuan.tan/video/videoplayback_noauido.mp4");
 
-    //playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
+    playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
 }
 
 MainWindow::~MainWindow()
@@ -130,8 +130,8 @@ void MainWindow::on_selectFilePushBtn_clicked()
 void MainWindow::playVideo(std::string fileName)
 {
     VideoPlayerState playState = m_videoplayer.getState();
-    LogInfo("play button clicked, playState: %d, last: %s, cur: %s",
-            playState, m_lastvVideoFilepath.c_str(), fileName.c_str());
+    LogInfo("play button clicked, playState: %s, last: %s, cur: %s",
+            getStateString(playState), m_lastvVideoFilepath.c_str(), fileName.c_str());
     if (m_lastvVideoFilepath == fileName &&
             (playState == VideoPlayer_Playing ||
              playState == VideoPlayer_Pausing)) {
@@ -148,14 +148,20 @@ void MainWindow::playVideo(std::string fileName)
 // ²¥·Å
 void MainWindow::on_playPushBtn_clicked()
 {
-    playVideo(m_videoFilepath);
+    VideoPlayerState playState = m_videoplayer.getState();
+    LogInfo("play/stop button clicked, playState: %s", getStateString(playState));
+    if (playState != VideoPlayer_Playing) {
+        playVideo(m_videoFilepath);
+    } else {
+        m_videoplayer.stop();
+    }
 }
 
 // ÔÝÍ£/¼ÌÐø
 void MainWindow::on_pausePushBtn_clicked()
 {
     VideoPlayerState playState = m_videoplayer.getState();
-    LogInfo("pause/continue button clicked, playState: %d", playState);
+    LogInfo("pause/continue button clicked, playState: %s", getStateString(playState));
     if (playState != VideoPlayer_Playing && playState != VideoPlayer_Pausing) {
         return;
     }

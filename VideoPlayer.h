@@ -82,6 +82,7 @@ private:
     void decodeVideoThread();
     void decodeFrame(AVPacket *packet);
     bool convert2rgb(const int videoWidth, const int videoHeight, AVFrame *videoFrame, AVFrame *rgbFrame);
+    bool AvSynchronize(AVPacket *packet, AVFrame *videoFrame);
 
     // 音频解码
     bool openSdlAudio();
@@ -90,8 +91,9 @@ private:
     static void sdlAudioCallBackFunc(void *userdata, Uint8 *stream, int len);
     void sdlAudioCallBack(Uint8 *stream, int len);
     int decodeAudioFrame(uint8_t *decodeBuf);
-    int decodeAudioFrame2();
-    double getAudioClock();
+    void pauseAudio(bool pauseOn);
+    int convert2pcm(AVFrame* audioFrame, uint8_t *decodeBuf);
+    int convert2pcm2(AVFrame* audioFrame, uint8_t *decodeBuf);
 
     // 渲染
     void RenderVideo(const uint8_t *videoBuffer, const int width, const int height);
@@ -111,32 +113,34 @@ private:
     bool m_isVideoDecodeFinished;
     bool m_isAudioDecodeFinished;
 
-    // 视频相关
-    AVFormatContext *m_avformatCtx;
-    AVStream *m_videoStream; // 视频流
-    AVCodecContext *m_videoCodecCtx;    // 视频编解码器
-    int64_t m_videoStartTime; //开始播放视频的时间
-
     // 视频帧队列
     std::mutex m_videoMutex;
     std::condition_variable m_videoCondvar;
     std::list<AVPacket> m_videoPacktList;
 
-    // 音频相关
-    AVCodecContext *m_audioCodecCtx;
-    AVStream *m_audioStream; // 音频流
-    SDL_AudioDeviceID m_audioDeviceId;
-    double m_audioClock;
-    int m_audioDecodeBufSize;
-    int m_audioDecodeBufIndex;
-    uint8_t* m_audioDecodeBuf;
-    AVFrame *m_auidoFrameSample;
-    SwrContext *m_audioSwrCtx;
-
     // 音频帧队列
     std::mutex m_audioMutex;
     std::condition_variable m_audioCondvar;
     std::list<AVPacket> m_audioPacktList;
+
+    AVFormatContext *m_avformatCtx;
+
+    // 视频相关
+    AVStream *m_videoStream; // 视频流
+    AVCodecContext *m_videoCodecCtx;    // 视频编解码器
+    int64_t m_videoStartTime; //开始播放视频的时间
+
+    // 音频相关
+    AVStream *m_audioStream; // 音频流
+    AVCodecContext *m_audioCodecCtx;    // 音频编解码器
+    SDL_AudioDeviceID m_audioDeviceId;
+    double m_audioCurPts;
+    int m_audioDecodeBufSize;
+    int m_audioDecodeBufIndex;
+    uint8_t* m_audioDecodeBuf;
+    SwrContext *m_audioSwrCtx;
 };
+
+char* getStateString(const VideoPlayerState state);
 
 #endif // VIDEOPLAYER_H

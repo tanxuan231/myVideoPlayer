@@ -1,9 +1,11 @@
 #include "VideoPlayer.h"
 
+constexpr int VIDEO_DELAY_THRESHOLD = 10;
+
 // 视频解码子线程
 void Videoplayer::decodeVideoThread()
 {
-    LogDebug("================== %s start ==================", __FUNCTION__);
+    LogInfo("================== %s start ==================", __FUNCTION__);
     usleep(1000);   // 等数据入队列
     m_isVideoDecodeFinished = false;
 
@@ -13,7 +15,7 @@ void Videoplayer::decodeVideoThread()
             break;
         }
 
-        if (m_isPause == true) {            
+        if (m_isPause) {
             usleep(10*1000);
             continue;
         }
@@ -43,15 +45,16 @@ void Videoplayer::decodeVideoThread()
         av_packet_unref(packet);
     }
 
-    LogDebug("================== decode over ==================");
-
-    if (!m_isQuit) {
-        m_isQuit = true;
-    }
-
+    LogInfo("================== decode over ==================");
     m_isVideoDecodeFinished = true;
 
-    LogDebug("%s finished", __FUNCTION__);
+    usleep(500*1000);   // 让音频播放完
+    if (!m_isQuit) {
+        m_isQuit = true;    // 让音频线程停止
+    }
+    stop();
+
+    LogInfo("%s finished", __FUNCTION__);
     return;
 }
 
@@ -59,52 +62,11 @@ void Videoplayer::decodeFrame(AVPacket *packet)
 {
     AVFrame *videoFrame = av_frame_alloc(); // 解码后原始数据
     AVFrame *rgbFrame = nullptr;
-    double videoPts = 0; // 当前视频的pts，时间显示戳
-    double audioPts = 0; // 音频pts
     int videoWidth  = 0;
     int videoHeight =  0;
 
     while (0 == avcodec_receive_frame(m_videoCodecCtx, videoFrame)) {
-        LogDebug("video start: %ld, pts: %ld, %ld, %ld, dts: %ld, %ld",
-                 m_videoStartTime, packet->pts, videoFrame->pts, videoFrame->pkt_pts, packet->dts, videoFrame->pkt_dts);
-
-        if (packet->dts == AV_NOPTS_VALUE && videoFrame->opaque && *(uint64_t*) videoFrame->opaque != AV_NOPTS_VALUE) {
-            videoPts = *(uint64_t *) videoFrame->opaque;
-        } else if (packet->dts != AV_NOPTS_VALUE) {
-            videoPts = packet->dts;
-        } else {
-            videoPts = 0;
-        }
-
-        videoPts *= av_q2d(m_videoStream->time_base);
-
-        // 音视频同步
-        while (true) {
-            if (m_isQuit) {
-                break;
-            }
-
-            if (m_audioStream != nullptr) {
-                if (m_isReadThreadFinished && m_audioPacktList.empty()) {
-                    // 无音频，无需同步
-                    break;
-                }
-                audioPts = m_audioClock;
-            } else {
-                // 无音频，则同步到外部时钟
-                audioPts = (av_gettime() - m_videoStartTime) / 1000000.0;   // 秒
-                m_audioClock = audioPts;
-            }
-
-            LogDebug("video pts: %f, audio pts: %f", videoPts, audioPts);
-            if (videoPts <= audioPts) {
-                break;
-            }
-
-            int delayTime = (videoPts - audioPts) * 1000;   // 毫秒
-            delayTime = delayTime > 5 ? 5 : delayTime;
-            usleep(delayTime * 1000);
-        }
+        AvSynchronize(packet, videoFrame);
 
         //LogDebug("width: %d | %d, height: %d | %d", videoFrame->width, videoWidth, videoFrame->height, videoHeight);
         if (videoFrame->width != videoWidth || videoFrame->height != videoHeight) {
@@ -132,6 +94,64 @@ void Videoplayer::decodeFrame(AVPacket *packet)
 
     if (videoFrame != nullptr) {
         av_free(videoFrame);
+    }
+}
+
+bool Videoplayer::AvSynchronize(AVPacket *packet, AVFrame *videoFrame)
+{
+    double videoPts = 0; // 当前视频的pts，时间显示戳
+    double audioPts = 0; // 音频pts
+
+    LogDebug("video start: %ld, pts: %ld, %ld, %ld, dts: %ld, %ld",
+             m_videoStartTime, packet->pts, videoFrame->pts, videoFrame->pkt_pts, packet->dts, videoFrame->pkt_dts);
+
+    if (packet->dts == AV_NOPTS_VALUE && videoFrame->opaque && *(uint64_t*) videoFrame->opaque != AV_NOPTS_VALUE) {
+        videoPts = *(uint64_t *) videoFrame->opaque;
+    } else if (packet->dts != AV_NOPTS_VALUE) {
+        videoPts = packet->dts;
+    } else {
+        videoPts = 0;
+    }
+
+    videoPts *= av_q2d(m_videoStream->time_base);
+    LogDebug("video pts2: %f", videoPts);
+
+    while (true) {
+        if (m_isQuit) {
+            break;
+        }
+
+        if (m_isPause) {
+            break;
+        }
+
+        if (m_audioStream != nullptr) {
+            if (m_isReadThreadFinished && m_audioPacktList.empty()) {
+                break;
+            }
+            audioPts = m_audioCurPts;
+        } else {
+            // 无音频，则同步到外部时钟
+            int64_t curtime = av_gettime();
+            LogDebug("curtime: %ld, starttime: %ld", curtime, m_videoStartTime);
+            audioPts = (curtime - m_videoStartTime) / 1000000.0;   // 秒
+        }
+
+        LogDebug("video pts: %f, audio pts: %f", videoPts, audioPts);
+        if (videoPts <= audioPts) {
+            break;
+        }
+
+        int delayTime = videoPts * 1000 - audioPts * 1000;   // 毫秒
+        LogDebug("delay time: %d ms", delayTime);
+
+        if (delayTime <= 0) {
+            break;
+        }
+
+        delayTime = delayTime > VIDEO_DELAY_THRESHOLD ? VIDEO_DELAY_THRESHOLD : delayTime;
+        LogDebug("sleep %d ms", delayTime);
+        usleep(delayTime * 1000);
     }
 }
 

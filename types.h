@@ -8,6 +8,4 @@ enum VideoPlayerState
     VideoPlayer_Pausing,
     VideoPlayer_Stoped
 };
-
-
 #endif // TYPES_H
