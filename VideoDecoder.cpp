@@ -117,10 +117,10 @@ bool Videoplayer::AvSynchronize(AVPacket *packet, AVFrame *videoFrame, bool &ski
 
     //LogDebug("videoFrame best timestamp: %f", videoFrame->best_effort_timestamp*av_q2d(m_videoStream->time_base));
 
-    if (packet->dts == AV_NOPTS_VALUE && videoFrame->opaque && *(uint64_t*) videoFrame->opaque != AV_NOPTS_VALUE) {
+    if (packet->pts == AV_NOPTS_VALUE && videoFrame->opaque && *(uint64_t*) videoFrame->opaque != AV_NOPTS_VALUE) {
         videoPts = *(uint64_t *) videoFrame->opaque;
-    } else if (packet->dts != AV_NOPTS_VALUE) {
-        videoPts = packet->dts;
+    } else if (packet->pts != AV_NOPTS_VALUE) {
+        videoPts = packet->pts;
     } else {
         videoPts = 0;
     }

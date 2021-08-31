@@ -24,10 +24,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
-    //playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
+    playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
     //playVideo("/Users/xuan.tan/video/videoplayback_noauido.mp4");
 
-    playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
+    //playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
 }
 
 MainWindow::~MainWindow()
