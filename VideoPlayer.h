@@ -47,8 +47,6 @@ public:
     Videoplayer();
     ~Videoplayer();
 
-    static bool initPlayer();
-
     VideoPlayerState getState();
 
     void setVideoPlayerCallBack(VideoPlayerCallBack *pointer) { m_videoPlayerCallBack = pointer; }
@@ -82,7 +80,8 @@ private:
     void decodeVideoThread();
     void decodeFrame(AVPacket *packet);
     bool convert2rgb(const int videoWidth, const int videoHeight, AVFrame *videoFrame, AVFrame *rgbFrame);
-    bool AvSynchronize(AVPacket *packet, AVFrame *videoFrame);
+    bool AvSynchronize(AVPacket *packet, AVFrame *videoFrame, bool &skipVideoFrame);
+    bool AvSynchronize2(AVPacket *packet, AVFrame *videoFrame, bool &skipVideoFrame);
 
     // 音频解码
     bool openSdlAudio();
@@ -93,13 +92,13 @@ private:
     int decodeAudioFrame(uint8_t *decodeBuf);
     void pauseAudio(bool pauseOn);
     int convert2pcm(AVFrame* audioFrame, uint8_t *decodeBuf);
+    double getAudioClock();
     int convert2pcm2(AVFrame* audioFrame, uint8_t *decodeBuf);
 
     // 渲染
     void RenderVideo(const uint8_t *videoBuffer, const int width, const int height);
 
 private:
-    static bool m_isinited;
     std::string m_filepath;
 
     VideoPlayerCallBack *m_videoPlayerCallBack;
@@ -129,6 +128,11 @@ private:
     AVStream *m_videoStream; // 视频流
     AVCodecContext *m_videoCodecCtx;    // 视频编解码器
     int64_t m_videoStartTime; //开始播放视频的时间
+
+    // not use
+    double m_lastVframePts;
+    double m_lastVframeDelay;
+    double m_vframeClock;
 
     // 音频相关
     AVStream *m_audioStream; // 音频流

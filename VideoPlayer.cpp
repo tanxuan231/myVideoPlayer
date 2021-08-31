@@ -2,21 +2,6 @@
 
 #include <thread>
 
-bool Videoplayer::m_isinited = false;
-
-bool Videoplayer::initPlayer()
-{
-    if (!m_isinited) {
-        av_register_all();          // 初始化FFMPEG  调用了这个才能正常使用编码器和解码器
-        avformat_network_init();    // 支持打开网络文件
-
-        LogInfo("init player success");
-        m_isinited = true;
-    }
-
-    return true;
-}
-
 Videoplayer::Videoplayer() : m_videoPlayerCallBack(nullptr),
     m_avformatCtx(nullptr),
     m_videoCodecCtx(nullptr),
@@ -31,6 +16,7 @@ Videoplayer::Videoplayer() : m_videoPlayerCallBack(nullptr),
 Videoplayer::~Videoplayer()
 {
     stop();
+    avformat_network_deinit();
 }
 
 VideoPlayerState Videoplayer::getState()
@@ -45,6 +31,9 @@ void Videoplayer::init()
     m_isQuit = false;
     m_isReadThreadFinished = false;
     m_isVideoDecodeFinished = false;
+    m_lastVframePts = 0;
+    m_lastVframeDelay = 0;
+    m_vframeClock = 0;
 
     m_audioDecodeBufSize = 0;
     m_audioDecodeBufIndex = 0;
@@ -52,6 +41,8 @@ void Videoplayer::init()
 
     m_audioDeviceId = 0;
     m_audioCurPts = 0;
+
+    avformat_network_init();    // 支持打开网络文件
 }
 
 bool Videoplayer::startPlayer(const std::string& filepath)
@@ -59,10 +50,6 @@ bool Videoplayer::startPlayer(const std::string& filepath)
     LogInfo("start player");
     if (filepath.empty()) {
         LogError("no video file");
-        return false;
-    }
-    if (!m_isinited) {
-        LogError("player is not inited");
         return false;
     }
 
@@ -306,6 +293,7 @@ void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
 {
     LogDebug("start to read frame, videoStreamId: %d, audioStreamId: %d", videoStreamId, audioStreamId);
     m_videoStartTime = av_gettime();
+    m_vframeClock = static_cast<double>(av_gettime()) / 1000000.0;
     //LogDebug("videoStartTime: %ld", m_videoStartTime);
 
     while (1) {
@@ -370,23 +358,26 @@ bool Videoplayer::openSdlAudio()
     // 打开SDL，并设置播放的格式为:AUDIO_S16LSB 双声道，44100hz
     // 后期使用ffmpeg解码完音频后，需要重采样成和这个一样的格式，否则播放会有杂音
     SDL_AudioSpec desiredSpec, obtainedSpec;
-    desiredSpec.channels = 2;   // 双声道
-    desiredSpec.freq = 44100;
+    desiredSpec.channels = m_audioCodecCtx->channels;   // 声道数
+    desiredSpec.freq = m_audioCodecCtx->sample_rate;
     desiredSpec.format = AUDIO_S16SYS;
-    desiredSpec.samples = FFMAX(512, 2 << av_log2(desiredSpec.freq / 30));
-    desiredSpec.silence = 0;
+    Uint16 samples = FFMAX(512, 2 << av_log2(desiredSpec.freq / 30));
+    desiredSpec.samples = samples;
+    desiredSpec.silence = 0;    // 设置静音的值
     desiredSpec.callback = sdlAudioCallBackFunc;  // 回调函数
     desiredSpec.userdata = this;                  // 传给上面回调函数的外带数据
 
     // 打开音频设备
     int num = SDL_GetNumAudioDevices(0);
     for (int i = 0; i < num; i++) {
-        m_audioDeviceId = SDL_OpenAudioDevice(SDL_GetAudioDeviceName(i, 0), false, &desiredSpec, &obtainedSpec, 0);
+        m_audioDeviceId = SDL_OpenAudioDevice(SDL_GetAudioDeviceName(i, 0), false, &desiredSpec, &obtainedSpec, SDL_AUDIO_ALLOW_ANY_CHANGE);
         if (m_audioDeviceId > 0) {
             break;
         }
     }
 
+    LogInfo("desired samples: %u, channels: %d, freq: %d", desiredSpec.samples, desiredSpec.channels, desiredSpec.freq);
+    LogInfo("obtained samples: %u, channels: %d, freq: %d", obtainedSpec.samples, obtainedSpec.channels, obtainedSpec.freq);
     LogInfo("audio device id: %d", m_audioDeviceId);
     if (m_audioDeviceId <= 0) {
         return false;

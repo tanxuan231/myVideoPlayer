@@ -76,6 +76,7 @@ int Videoplayer::decodeAudioFrame(uint8_t *decodeBuf)
         } else {
             LogWarn("there no audio pts value");
         }
+
         LogDebug("audio pts: %f", m_audioCurPts);
 
         int ret = avcodec_send_packet(m_audioCodecCtx, packet);
@@ -89,6 +90,7 @@ int Videoplayer::decodeAudioFrame(uint8_t *decodeBuf)
             LogError("codec receive frame failed, ret: %d", ret);
             break;
         }
+        //LogDebug("audioFrame best timestamp: %f", audioFrame->best_effort_timestamp*av_q2d(m_audioStream->time_base));
 
         // 设置通道数或channel_layout
         if (audioFrame->channels > 0 && audioFrame->channel_layout == 0) {
@@ -126,10 +128,20 @@ int Videoplayer::convert2pcm(AVFrame* audioFrame, uint8_t *decodeBuf)
         decodeSize = audioFrame->channels * nb * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
 
         // 每秒钟音频播放的字节数 sample_rate * channels * sample_format(一个sample占用的字节数)
-        //m_audioClock += static_cast<double>(decodeSize) / (2 * m_audioStream->codec->channels * m_audioStream->codec->sample_rate);
+        //m_audioCurPts += static_cast<double>(decodeSize) / (2 * m_audioStream->codec->channels * m_audioStream->codec->sample_rate);
     } while (false);
 
     return decodeSize;
+}
+
+double Videoplayer::getAudioClock()
+{
+    int usedBufSize = m_audioDecodeBufSize - m_audioDecodeBufIndex;
+    int bytesPerSec = m_audioStream->codec->sample_rate * m_audioCodecCtx->channels * 2;
+
+    double pts = m_audioCurPts - static_cast<double>(usedBufSize) / bytesPerSec;
+
+    return pts;
 }
 
 int Videoplayer::convert2pcm2(AVFrame* audioFrame, uint8_t *decodeBuf)

@@ -21,7 +21,6 @@ MainWindow::MainWindow(QWidget *parent)
     setAcceptDrops(true);   // Ω” ‹Õœ◊ß
     connect(this, &MainWindow::DisplayVideoSignal, this, &MainWindow::DisplayVideoSlot);
     m_videoplayer.setVideoPlayerCallBack(this);
-    m_videoplayer.initPlayer();
 
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
