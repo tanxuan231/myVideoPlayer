@@ -90,17 +90,24 @@ void Videoplayer::decodeFrame(AVPacket *packet)
         }
 
         // yuv => rgb
-        convert2rgb(videoWidth, videoHeight, videoFrame, rgbFrame);
+        if (!convert2rgb(videoWidth, videoHeight, videoFrame, rgbFrame)) {
+            break;
+        }
 
         // 发送数据给Qt进行渲染
         RenderVideo(rgbFrame->data[0], videoWidth, videoHeight);
 
+        av_freep(&(rgbFrame->data[0]));
         if (rgbFrame != nullptr) {
             av_free(rgbFrame);
             rgbFrame = nullptr;
         }
     }
 
+    if (rgbFrame != nullptr) {
+        av_free(rgbFrame);
+        rgbFrame = nullptr;
+    }
     if (videoFrame != nullptr) {
         av_free(videoFrame);
     }
@@ -245,23 +252,23 @@ bool Videoplayer::AvSynchronize2(AVPacket *packet, AVFrame *videoFrame, bool &sk
 bool Videoplayer::convert2rgb(const int videoWidth, const int videoHeight, AVFrame *videoFrame, AVFrame *rgbFrame)
 {
     struct SwsContext *imgConvertCtx = nullptr;
-
-    // 需要给rgbFrame->data分配好空间，避免sws_scale出现dst pointer错误
-    av_image_alloc(rgbFrame->data, rgbFrame->linesize, videoWidth, videoHeight,
-        AV_PIX_FMT_RGB32, 1);
-
     // 将解码后的数据转换成RGB32
     imgConvertCtx = sws_getContext(videoWidth, videoHeight, (AVPixelFormat)videoFrame->format,
                                    videoWidth, videoHeight, AV_PIX_FMT_RGB32,
                                    SWS_BICUBIC, NULL, NULL, NULL);
+    if (imgConvertCtx == nullptr) {
+        LogError("sws get context failed");
+        return false;
+    }
+    // 需要给rgbFrame->data分配好空间，避免sws_scale出现dst pointer错误
+    av_image_alloc(rgbFrame->data, rgbFrame->linesize, videoWidth, videoHeight,
+        AV_PIX_FMT_RGB32, 1);
 
     sws_scale(imgConvertCtx,
               (const uint8_t* const*)videoFrame->data, videoFrame->linesize, 0, videoHeight,
               rgbFrame->data, rgbFrame->linesize);
 
-    if (imgConvertCtx != nullptr) {
-        sws_freeContext(imgConvertCtx);
-    }
+    sws_freeContext(imgConvertCtx);
 
     return true;
 }
