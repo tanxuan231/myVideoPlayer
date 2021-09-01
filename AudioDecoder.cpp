@@ -12,7 +12,7 @@ void Videoplayer::sdlAudioCallBack(Uint8 *stream, int len)
     LogDebug("========== %s start ============", __FUNCTION__);
     int copyLen, decodeDataSize;
     memset(stream, 0, len);
-    LogDebug("decode buf size: %d, index: %d", m_audioDecodeBufSize, m_audioDecodeBufIndex);
+    LogDebug("len: %d, decode buf size: %d, index: %d", len, m_audioDecodeBufSize, m_audioDecodeBufIndex);
 
     // 向设备发送长度为len的数据
     while (len > 0) {
@@ -56,12 +56,12 @@ int Videoplayer::decodeAudioFrame(uint8_t *decodeBuf)
 
     do {
         if (m_isQuit) {
-            LogInfo("is quit");
+            LogDebug("is quit");
             break;
         }
 
         if (m_isPause) {
-            LogInfo("is pause");
+            LogDebug("is pause");
             break;
         }
 

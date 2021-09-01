@@ -8,7 +8,7 @@ static constexpr double NOSYNC_THRESHOLD = 10.0;
 // 视频解码子线程
 void Videoplayer::decodeVideoThread()
 {
-    LogInfo("================== %s start ==================", __FUNCTION__);
+    LogInfo("================== decode video thread start ==================");
     usleep(1000);   // 等数据入队列
     m_isVideoDecodeFinished = false;
 
@@ -48,16 +48,16 @@ void Videoplayer::decodeVideoThread()
         av_packet_unref(packet);
     }
 
-    LogInfo("================== decode over ==================");
     m_isVideoDecodeFinished = true;
 
-    usleep(500*1000);   // 让音频播放完
+    usleep(100*1000);   // 让音频播放完
     if (!m_isQuit) {
+        LogInfo("set isquit to true");
         m_isQuit = true;    // 让音频线程停止
     }
-    stop();
+    closeSdlAudio();
 
-    LogInfo("%s finished", __FUNCTION__);
+    LogInfo("================== decode video thread over ==================");
     return;
 }
 
@@ -252,14 +252,13 @@ bool Videoplayer::convert2rgb(const int videoWidth, const int videoHeight, AVFra
         AV_PIX_FMT_RGB32, 1);
 
     // 将解码后的数据转换成RGB32
-    imgConvertCtx = sws_getContext(videoWidth, videoHeight,
-            (AVPixelFormat)videoFrame->format, videoWidth, videoHeight,
-            AV_PIX_FMT_RGB32, SWS_BICUBIC, NULL, NULL, NULL);
+    imgConvertCtx = sws_getContext(videoWidth, videoHeight, (AVPixelFormat)videoFrame->format,
+                                   videoWidth, videoHeight, AV_PIX_FMT_RGB32,
+                                   SWS_BICUBIC, NULL, NULL, NULL);
 
     sws_scale(imgConvertCtx,
-            (const uint8_t* const*)videoFrame->data,
-            videoFrame->linesize, 0, videoHeight, rgbFrame->data,
-            rgbFrame->linesize);
+              (const uint8_t* const*)videoFrame->data, videoFrame->linesize, 0, videoHeight,
+              rgbFrame->data, rgbFrame->linesize);
 
     if (imgConvertCtx != nullptr) {
         sws_freeContext(imgConvertCtx);

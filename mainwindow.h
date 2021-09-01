@@ -48,7 +48,6 @@ private:
     Ui::MainWindow *ui;
     QImage* m_image;
 
-    bool m_ispause;
     std::string m_videoFilepath;
     std::string m_lastvVideoFilepath;
     Videoplayer m_videoplayer;

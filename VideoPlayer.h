@@ -100,8 +100,10 @@ private:
 
 private:
     std::string m_filepath;
-
     VideoPlayerCallBack *m_videoPlayerCallBack;
+
+    std::thread m_readFileThread;
+    std::thread m_decodeVideoThread;
 
     VideoPlayerState m_playState;
     bool m_isPause;

@@ -57,9 +57,9 @@ bool Videoplayer::startPlayer(const std::string& filepath)
     m_filepath = filepath;
 
     // 启动线程读取文件
-    std::thread([&](Videoplayer* p) {
+    m_readFileThread = std::thread([&](Videoplayer* p) {
         p->readFileThread();
-    }, this).detach();
+    }, this);
 
     return true;
 }
@@ -68,6 +68,11 @@ void Videoplayer::play()
 {
     LogInfo("to start player");
     pauseAudio(false);
+    if (m_playState == VideoPlayer_Pausing) {
+        m_playState = VideoPlayer_Playing;
+    } else {
+        LogWarn("play state error: %s", getStateString(m_playState));
+    }
     m_isPause = false;
 }
 
@@ -75,7 +80,11 @@ void Videoplayer::pause()
 {
     LogInfo("to pause player");
     pauseAudio(true);
-    m_playState = VideoPlayer_Pausing;
+    if (m_playState == VideoPlayer_Playing) {
+        m_playState = VideoPlayer_Pausing;
+    } else {
+        LogWarn("play state error: %d", getStateString(m_playState));
+    }
     m_isPause = true;
 }
 
@@ -83,18 +92,31 @@ void Videoplayer::stop()
 {
     LogInfo("to stop player");
     m_isQuit = true;
+
+    if (m_readFileThread.joinable()) {
+        LogInfo("to join read file thread");
+        m_readFileThread.join();
+        LogInfo("to join read file thread over");
+    }
+
+    if (m_decodeVideoThread.joinable()) {
+        LogInfo("to join decode video thread");
+        m_decodeVideoThread.join();
+        LogInfo("to join decode video thread over");
+    }
+
     m_playState = VideoPlayer_Stoped;
 
-    usleep(12*1000);    // 防止多线程操作，此次释放，其他线程还在工作 TODO
     clearResource();
+    LogInfo("to stop player over");
 }
 
 void Videoplayer::clearResource()
 {
     LogInfo("clear resource");
+    closeSdlAudio();
     clearVideoQueue();
     clearAudioQueue();
-    closeSdlAudio();
 
     if (m_audioSwrCtx != nullptr) {
         swr_free(&m_audioSwrCtx);
@@ -202,9 +224,10 @@ bool Videoplayer::openVideoDecoder(const int streamId)
     LogInfo("open vidoe decoder success. video duration: %f", videoDuration);
 
     // 7.解码
-    std::thread([&](Videoplayer* p) {
+    m_decodeVideoThread = std::thread([&](Videoplayer* p) {
         p->decodeVideoThread();
-    }, this).detach();
+    }, this);
+    //LogInfo("decode video thread id: %s", m_decodeVideoThread);
 
     return true;
 }
@@ -370,7 +393,7 @@ bool Videoplayer::openSdlAudio()
     // 打开音频设备
     int num = SDL_GetNumAudioDevices(0);
     for (int i = 0; i < num; i++) {
-        m_audioDeviceId = SDL_OpenAudioDevice(SDL_GetAudioDeviceName(i, 0), false, &desiredSpec, &obtainedSpec, SDL_AUDIO_ALLOW_ANY_CHANGE);
+        m_audioDeviceId = SDL_OpenAudioDevice(SDL_GetAudioDeviceName(i, 0), false, &desiredSpec, &obtainedSpec, 0);
         if (m_audioDeviceId > 0) {
             break;
         }
@@ -490,7 +513,9 @@ void Videoplayer::clearAudioQueue()
 void Videoplayer::pauseAudio(bool pauseOn)
 {
     if (m_audioDeviceId > 0) {
+        SDL_LockAudioDevice(m_audioDeviceId);
         SDL_PauseAudioDevice(m_audioDeviceId, pauseOn ? 1 : 0);
+        SDL_UnlockAudioDevice(m_audioDeviceId);
     }
 }
 

@@ -15,7 +15,6 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_image(nullptr)
-    , m_ispause(false)
 {
     ui->setupUi(this);
     setAcceptDrops(true);   // 接受拖拽
@@ -24,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
-    playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
+    //playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
     //playVideo("/Users/xuan.tan/video/videoplayback_noauido.mp4");
 
     //playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
@@ -122,6 +121,7 @@ void MainWindow::on_selectFilePushBtn_clicked()
         return;
     }
 
+    LogInfo("select file push button, file: %s", fileName.toLatin1().data());
     m_videoFilepath = fileName.toStdString();    
     playVideo(m_videoFilepath);
 }
@@ -129,7 +129,7 @@ void MainWindow::on_selectFilePushBtn_clicked()
 void MainWindow::playVideo(std::string fileName)
 {
     VideoPlayerState playState = m_videoplayer.getState();
-    LogInfo("play button clicked, playState: %s, last: %s, cur: %s",
+    LogInfo("play video, playState: %s, last: %s, cur: %s",
             getStateString(playState), m_lastvVideoFilepath.c_str(), fileName.c_str());
     if (m_lastvVideoFilepath == fileName &&
             (playState == VideoPlayer_Playing ||
@@ -137,7 +137,8 @@ void MainWindow::playVideo(std::string fileName)
         return;
     }
 
-    if (!m_lastvVideoFilepath.empty() && m_lastvVideoFilepath != fileName) {
+    if ((!m_lastvVideoFilepath.empty() && m_lastvVideoFilepath != fileName) ||
+            (playState == VideoPlayer_Null)) {
         m_videoplayer.stop();
     }
     m_videoplayer.startPlayer(fileName);
@@ -149,7 +150,7 @@ void MainWindow::on_playPushBtn_clicked()
 {
     VideoPlayerState playState = m_videoplayer.getState();
     LogInfo("play/stop button clicked, playState: %s", getStateString(playState));
-    if (playState != VideoPlayer_Playing) {
+    if (playState != VideoPlayer_Playing && playState != VideoPlayer_Pausing) {
         playVideo(m_videoFilepath);
     } else {
         m_videoplayer.stop();
@@ -164,20 +165,20 @@ void MainWindow::on_pausePushBtn_clicked()
     if (playState != VideoPlayer_Playing && playState != VideoPlayer_Pausing) {
         return;
     }
-    if (m_ispause) {
+    if (playState == VideoPlayer_Pausing) {
         m_videoplayer.play();
     } else {
         m_videoplayer.pause();
     }
-    m_ispause = !m_ispause;
 }
 
+// 拉流地址
 void MainWindow::on_rtspPushBtn_clicked()
 {
     QString dlgTitle = "";
     QString txtLabel = "please input rtmp stream";
     QString defaultInput = "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov";
-    QLineEdit::EchoMode echoMode=QLineEdit::Normal;
+    QLineEdit::EchoMode echoMode = QLineEdit::Normal;
     bool ok = false;
 
     QString text = QInputDialog::getText(this, dlgTitle, txtLabel, echoMode, defaultInput, &ok);
