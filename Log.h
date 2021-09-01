@@ -4,8 +4,8 @@
 #include <QDebug>
 #include <pthread.h>
 
-//static bool const debugOpen = false;
-static bool const debugOpen = true;
+static bool const debugOpen = false;
+//static bool const debugOpen = true;
 
 #define LogDebug(format, ...) \
     do { \

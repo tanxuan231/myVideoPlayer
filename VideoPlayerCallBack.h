@@ -12,6 +12,8 @@ public:
     //VideoPlayerCallBack();
     //~VideoPlayerCallBack();
 
+    virtual void onSetVideoWinRect(const int width, const int height) = 0;
+
     virtual void onVideoPlayFailed(const int &errorCode = 0) = 0;
 
     virtual void onDisplayVideo(const uint8_t *yuv420Buffer, const int width, const int height) = 0;

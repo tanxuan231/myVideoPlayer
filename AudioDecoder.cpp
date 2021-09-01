@@ -14,6 +14,10 @@ void Videoplayer::sdlAudioCallBack(Uint8 *stream, int len)
     memset(stream, 0, len);
     LogDebug("len: %d, decode buf size: %d, index: %d", len, m_audioDecodeBufSize, m_audioDecodeBufIndex);
 
+    if (m_audioDecodeBuf == nullptr) {
+        return;
+    }
+
     // 向设备发送长度为len的数据
     while (len > 0) {
         if (m_audioDecodeBufIndex >= m_audioDecodeBufSize) {

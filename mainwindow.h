@@ -21,21 +21,26 @@ public:
     ~MainWindow();
 
 protected:
+    void onSetVideoWinRect(const int width, const int height);
     void onVideoPlayFailed(const int &errorCode = 0);
     void onDisplayVideo(const uint8_t *buffer, const int width, const int height);
+
     void dragEnterEvent(QDragEnterEvent *event);
     void dropEvent(QDropEvent *event);
 
 private:
     void resizeEvent(QResizeEvent *event);
     void paintEvent(QPaintEvent *event);
-    void DisplayVideoSlot(QImage* image);
     void playVideo(std::string fileName);
 
 signals:
     void DisplayVideoSignal(QImage* image);
+    void setVideoWinRectSignal(const int _width, const int _height);
 
 private slots:
+    void DisplayVideoSlot(QImage* image);
+    void setVideoWinRectSlot(const int _width, const int _height);
+
     void on_selectFilePushBtn_clicked();
 
     void on_playPushBtn_clicked();

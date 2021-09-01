@@ -19,11 +19,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     setAcceptDrops(true);   // ½ÓÊÜÍÏ×§
     connect(this, &MainWindow::DisplayVideoSignal, this, &MainWindow::DisplayVideoSlot);
+    connect(this, &MainWindow::setVideoWinRectSignal, this, &MainWindow::setVideoWinRectSlot);
+
     m_videoplayer.setVideoPlayerCallBack(this);
 
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_1mb.mp4");
     //playVideo("/Users/xuan.tan/video/big_buck_bunny_720p_30mb.mp4");
-    //playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
+    playVideo("/Users/xuan.tan/video/woshiyanshuojia4_1.mp4");
     //playVideo("/Users/xuan.tan/video/videoplayback_noauido.mp4");
 
     //playVideo("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov");
@@ -32,7 +34,18 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     disconnect(this, &MainWindow::DisplayVideoSignal, this, &MainWindow::DisplayVideoSlot);
+    disconnect(this, &MainWindow::setVideoWinRectSignal, this, &MainWindow::setVideoWinRectSlot);
     delete ui;
+}
+
+void MainWindow::onSetVideoWinRect(const int _width, const int _height)
+{
+    emit setVideoWinRectSignal(_width, _height);
+}
+
+void MainWindow::setVideoWinRectSlot(const int _width, const int _height)
+{
+    this->resize(_width, _height);
 }
 
 void MainWindow::onVideoPlayFailed(const int &errorCode)

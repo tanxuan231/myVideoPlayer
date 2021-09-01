@@ -141,11 +141,11 @@ private:
     AVStream *m_audioStream; // “Ù∆µ¡˜
     AVCodecContext *m_audioCodecCtx;    // “Ù∆µ±‡Ω‚¬Î∆˜
     SDL_AudioDeviceID m_audioDeviceId;
+    SwrContext *m_audioSwrCtx;
     double m_audioCurPts;
     int m_audioDecodeBufSize;
     int m_audioDecodeBufIndex;
-    uint8_t* m_audioDecodeBuf;
-    SwrContext *m_audioSwrCtx;
+    uint8_t* m_audioDecodeBuf;    
 };
 
 char* getStateString(const VideoPlayerState state);

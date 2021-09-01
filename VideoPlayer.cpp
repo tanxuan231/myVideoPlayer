@@ -123,6 +123,11 @@ void Videoplayer::clearResource()
         m_audioSwrCtx = nullptr;
     }
 
+    if (m_audioCodecCtx != nullptr) {
+        avcodec_close(m_audioCodecCtx);
+        m_audioCodecCtx = nullptr;
+    }
+
     if (m_videoCodecCtx != nullptr) {
         avcodec_close(m_videoCodecCtx);
         m_videoCodecCtx = nullptr;
@@ -133,6 +138,14 @@ void Videoplayer::clearResource()
         avformat_free_context(m_avformatCtx);
         m_avformatCtx = nullptr;
     }
+
+    if (m_audioDecodeBuf != nullptr) {
+        delete [] m_audioDecodeBuf;
+        m_audioDecodeBuf = nullptr;
+    }
+
+    m_audioStream = nullptr;
+    m_videoStream = nullptr;
 }
 
 // 读取文件子线程
@@ -286,7 +299,12 @@ bool Videoplayer::openVideoDecoder(const int streamId)
 
     m_videoStream = m_avformatCtx->streams[streamId];
     double videoDuration = m_videoStream->duration * av_q2d(m_videoStream->time_base);
-    LogInfo("open vidoe decoder success. video duration: %f", videoDuration);
+    LogInfo("open vidoe decoder success. video duration: %f, width: %d, height: %d",
+            videoDuration, m_videoCodecCtx->width, m_videoCodecCtx->height);
+
+    if (m_videoPlayerCallBack != nullptr) {
+        m_videoPlayerCallBack->onSetVideoWinRect(m_videoCodecCtx->width, m_videoCodecCtx->height);
+    }
 
     // 7.解码
     m_decodeVideoThread = std::thread([&](Videoplayer* p) {
