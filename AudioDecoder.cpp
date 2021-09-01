@@ -151,8 +151,12 @@ int Videoplayer::convert2pcm2(AVFrame* audioFrame, uint8_t *decodeBuf)
     AVSampleFormat dstFormat = AV_SAMPLE_FMT_S16;
 
     // 设置转换参数
+    LogDebug("swr_alloc_set_opts: outChannelLayout: %lu, outSampleRate: %d", dstLayout, audioFrame->sample_rate);
+    LogDebug("swr_alloc_set_opts: inChannelLayout: %lu, inSampleFmt: %d, inSampleRate: %d",
+             audioFrame->channel_layout, audioFrame->format, audioFrame->sample_rate);
     swrCtx = swr_alloc_set_opts(nullptr, dstLayout, dstFormat, audioFrame->sample_rate,
-        audioFrame->channel_layout, (AVSampleFormat)audioFrame->format, audioFrame->sample_rate, 0, nullptr);
+                                audioFrame->channel_layout, (AVSampleFormat)audioFrame->format, audioFrame->sample_rate,
+                                0, nullptr);
     if (!swrCtx) {
         LogError("swr alloc set options failed");
         return -1;

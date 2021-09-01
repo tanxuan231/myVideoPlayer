@@ -166,7 +166,6 @@ bool Videoplayer::AvSynchronize(AVPacket *packet, AVFrame *videoFrame, bool &ski
     }
 }
 
-
 bool Videoplayer::AvSynchronize2(AVPacket *packet, AVFrame *videoFrame, bool &skipVideoFrame)
 {
     double videoPts = 0; // 当前视频的pts，时间显示戳

@@ -193,6 +193,71 @@ void Videoplayer::readFileThread()
     LogInfo("================== read file thread over ==================");
 }
 
+
+void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
+{
+    LogDebug("start to read frame, videoStreamId: %d, audioStreamId: %d", videoStreamId, audioStreamId);
+    m_videoStartTime = av_gettime();
+    m_vframeClock = static_cast<double>(av_gettime()) / 1000000.0;
+    //LogDebug("videoStartTime: %ld", m_videoStartTime);
+
+    while (1) {
+        if (m_isQuit) {
+            LogInfo("is quit, break it");
+            break;
+        }
+
+        if (m_isPause) {
+            usleep(10*1000);
+            continue;
+        }
+
+        // 控制读取速度
+        if (m_audioPacktList.size() > MAX_AUDIO_SIZE || m_videoPacktList.size() > MAX_VIDEO_SIZE) {
+            LogDebug("audio/video pack list size %u > %u | %u > %u",
+                     m_audioPacktList.size(), MAX_AUDIO_SIZE, m_videoPacktList.size(), MAX_VIDEO_SIZE);
+            usleep(10*1000);
+            continue;
+        }
+
+        AVPacket packet;
+        // 6.读取码流中的音频若干帧或者视频一帧
+        int ret = av_read_frame(m_avformatCtx, &packet);
+        if (ret < 0) {
+            //LogWarn("read frame failed, ret: %d | %d", ret, AVERROR_EOF);
+            static bool firstEnd = true;
+            if (firstEnd && ret == AVERROR_EOF) {
+                firstEnd = false;
+
+                LogWarn("set packet to null");
+                packet.data = NULL;
+                packet.size = 0;
+            } else if (ret == AVERROR_EOF) {
+                LogInfo("read file eof");
+                break;
+            } else {
+                if (m_isVideoDecodeFinished || m_isQuit) {
+                    LogWarn("read frame failed, but video decode finished or is quit, break it");
+                    break; // 解码线程也执行完了 可以退出了
+                }
+                usleep(10*1000);
+                continue;
+            }
+        }
+
+        if (packet.stream_index == videoStreamId) {
+            putVideoPacket(packet);
+        } else if( packet.stream_index == audioStreamId) {
+            putAudioPacket(packet);
+        } else {
+            LogWarn("other stream info");
+            av_packet_unref(&packet);
+        }
+    }
+
+    LogInfo("========== read frame over ===========");
+}
+
 bool Videoplayer::openVideoDecoder(const int streamId)
 {
     if (streamId < 0) {
@@ -262,37 +327,14 @@ bool Videoplayer::openAudioDecoder(const int streamId)
         return false;
     }
 
-    // 输入的采样格式
-    AVSampleFormat inSampleFmt = m_audioCodecCtx->sample_fmt;
-    // 输出的采样格式 16bit PCM
-    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_S16;
-    // 输入的采样率
-    int inSampleRate = m_audioCodecCtx->sample_rate;
-    // 输出的采样率
-    int outSampleRate = m_audioCodecCtx->sample_rate;
-    // 输入的声道布局
-    uint64_t inChannelLayout = m_audioCodecCtx->channel_layout;
-    // 输出的声道布局
-    uint64_t outChannelLayout = AV_CH_LAYOUT_STEREO;
-
     do {
-        // 给Swrcontext分配空间，设置转换参数
-        m_audioSwrCtx = swr_alloc_set_opts(nullptr, outChannelLayout, outSampleFmt, outSampleRate,
-                                           inChannelLayout, inSampleFmt, inSampleRate, 0, nullptr);
-        if (m_audioSwrCtx == nullptr) {
-            LogError("swr alloc set opts failed");
-            break;
-        }
-        if (swr_init(m_audioSwrCtx) < 0) {
-            LogError("swr init failed");
+        if (!initAudioSwsCtx()) {
             break;
         }
 
         m_audioStream = m_avformatCtx->streams[streamId];
         double audioDuration = m_audioStream->duration * av_q2d(m_audioStream->time_base);
         LogInfo("audio duration: %f", audioDuration);
-        // 获取声道数量
-        LogInfo("audio out channel counts: %d", av_get_channel_layout_nb_channels(outChannelLayout));
 
         if (!openSdlAudio()) {
             LogError("open sdl audio failed");
@@ -312,68 +354,37 @@ bool Videoplayer::openAudioDecoder(const int streamId)
     return false;
 }
 
-void Videoplayer::readFrame(const int videoStreamId, const int audioStreamId)
+bool Videoplayer::initAudioSwsCtx()
 {
-    LogDebug("start to read frame, videoStreamId: %d, audioStreamId: %d", videoStreamId, audioStreamId);
-    m_videoStartTime = av_gettime();
-    m_vframeClock = static_cast<double>(av_gettime()) / 1000000.0;
-    //LogDebug("videoStartTime: %ld", m_videoStartTime);
+    // 输入的采样格式
+    AVSampleFormat inSampleFmt = m_audioCodecCtx->sample_fmt;
+    // 输出的采样格式 16bit PCM
+    AVSampleFormat outSampleFmt = AV_SAMPLE_FMT_S16;
+    // 输入的采样率
+    int inSampleRate = m_audioCodecCtx->sample_rate;
+    // 输出的采样率
+    int outSampleRate = m_audioCodecCtx->sample_rate;
+    // 输入的声道布局
+    int64_t inChannelLayout = m_audioCodecCtx->channel_layout;
+    // 输出的声道布局
+    int64_t outChannelLayout = av_get_default_channel_layout(m_audioCodecCtx->channels);
 
-    while (1) {
-        if (m_isQuit) {
-            LogInfo("is quit, break it");
-            break;
-        }
-
-        if (m_isPause) {
-            usleep(10*1000);
-            continue;
-        }
-
-        // 控制读取速度
-        if (m_audioPacktList.size() > MAX_AUDIO_SIZE || m_videoPacktList.size() > MAX_VIDEO_SIZE) {
-            LogDebug("audio/video pack list size %u > %u | %u > %u",
-                     m_audioPacktList.size(), MAX_AUDIO_SIZE, m_videoPacktList.size(), MAX_VIDEO_SIZE);
-            usleep(10*1000);
-            continue;
-        }
-
-        AVPacket packet;
-        // 6.读取码流中的音频若干帧或者视频一帧
-        int ret = av_read_frame(m_avformatCtx, &packet);
-        if (ret < 0) {
-            //LogWarn("read frame failed, ret: %d | %d", ret, AVERROR_EOF);
-            static bool firstEnd = true;
-            if (firstEnd && ret == AVERROR_EOF) {
-                firstEnd = false;
-
-                LogWarn("set packet to null");
-                packet.data = NULL;
-                packet.size = 0;
-            } else if (ret == AVERROR_EOF) {
-                LogInfo("read file eof");
-                break;
-            } else {
-                if (m_isVideoDecodeFinished || m_isQuit) {
-                    LogWarn("read frame failed, but video decode finished or is quit, break it");
-                    break; // 解码线程也执行完了 可以退出了
-                }
-                usleep(10*1000);
-                continue;
-            }
-        }
-
-        if (packet.stream_index == videoStreamId) {
-            putVideoPacket(packet);
-        } else if( packet.stream_index == audioStreamId) {
-            putAudioPacket(packet);
-        } else {
-            LogWarn("other stream info");
-            av_packet_unref(&packet);
-        }
+    // 给Swrcontext分配空间，设置转换参数
+    LogDebug("swr_alloc_set_opts: outChannelLayout: %lu, outSampleRate: %d", outChannelLayout, outSampleRate);
+    LogDebug("swr_alloc_set_opts: inChannelLayout: %lu, inSampleFmt: %d, inSampleRate: %d", inChannelLayout, inSampleFmt, inSampleRate);
+    m_audioSwrCtx = swr_alloc_set_opts(nullptr, outChannelLayout, outSampleFmt, outSampleRate,
+                                       inChannelLayout, inSampleFmt, inSampleRate, 0, nullptr);
+    if (m_audioSwrCtx == nullptr) {
+        LogError("swr alloc set opts failed");
+        return false;
     }
 
-    LogInfo("========== read frame over ===========");
+    if (swr_init(m_audioSwrCtx) < 0) {
+        LogError("swr init failed");
+        return false;
+    }
+
+    return true;
 }
 
 bool Videoplayer::openSdlAudio()

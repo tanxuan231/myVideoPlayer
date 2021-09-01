@@ -84,6 +84,7 @@ private:
     bool AvSynchronize2(AVPacket *packet, AVFrame *videoFrame, bool &skipVideoFrame);
 
     // “Ù∆µΩ‚¬Î
+    bool initAudioSwsCtx();
     bool openSdlAudio();
     void closeSdlAudio();
     bool openAudioDecoder(const int streamId);
