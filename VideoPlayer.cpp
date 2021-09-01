@@ -17,6 +17,7 @@ Videoplayer::~Videoplayer()
 {
     stop();
     avformat_network_deinit();
+    SDL_Quit();
 }
 
 VideoPlayerState Videoplayer::getState()

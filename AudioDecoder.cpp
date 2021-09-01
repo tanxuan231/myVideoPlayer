@@ -18,7 +18,7 @@ void Videoplayer::sdlAudioCallBack(Uint8 *stream, int len)
         return;
     }
 
-    // 向设备发送长度为len的数据
+    // 向设备发送长度为len的解码后的数据
     while (len > 0) {
         if (m_audioDecodeBufIndex >= m_audioDecodeBufSize) {
             // 缓冲区中无数据, 从音频队列中解码数据
@@ -142,7 +142,6 @@ double Videoplayer::getAudioClock()
 {
     int usedBufSize = m_audioDecodeBufSize - m_audioDecodeBufIndex;
     int bytesPerSec = m_audioStream->codec->sample_rate * m_audioCodecCtx->channels * 2;
-
     double pts = m_audioCurPts - static_cast<double>(usedBufSize) / bytesPerSec;
 
     return pts;
